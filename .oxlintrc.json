@@ -1,0 +1,519 @@
+{
+    // All stable categories at "warn"; the lint script passes
+    // --deny-warnings, so every diagnostic fails CI. Nursery rules stay out:
+    // they are experimental by definition (non-goal of this campaign).
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "categories": {
+        "correctness": "warn",
+        "suspicious": "warn",
+        "pedantic": "warn",
+        "perf": "warn",
+        "style": "warn",
+        "restriction": "warn"
+    },
+    // Globals provided by Bun and the Node runtime: bun-types declares them,
+    // but no-undef needs to know them at the linter level.
+    "globals": {
+        "Bun": "readonly",
+        "Buffer": "readonly",
+        "URL": "readonly",
+        "console": "readonly",
+        "process": "readonly",
+        "Response": "readonly",
+        "AbortController": "readonly",
+        "AbortSignal": "readonly",
+        "structuredClone": "readonly",
+        "setTimeout": "readonly",
+        "clearTimeout": "readonly",
+        "setInterval": "readonly",
+        "clearInterval": "readonly",
+        "fetch": "readonly"
+    },
+    // Rules that forbid standard language idioms, kept off for this project:
+    // - no-async-await / no-optional-chaining / no-rest-spread-properties:
+    //   async-await, ?. and spread are core idioms of the codebase.
+    // - unicorn/no-null: null is part of the contracts (nullable verdict, Zod).
+    // - one-var: the pedantic category wants grouped declarations, the project
+    //   convention is one declaration per statement.
+    // - sort-keys: alphabetical key order, zero safety value.
+    // - no-undefined: targets pre-ES5 environments, obsolete here.
+    "rules": {
+        "oxc/no-accumulating-spread": "error",
+        "anti-slop/no-array-filter-map": "error",
+        "anti-slop/no-reduce-accumulator-copy": "error",
+        "anti-slop/no-chained-type-assertions": "error",
+        "anti-slop/no-conditional-empty-object-spread": "error",
+        "anti-slop/no-known-value-widening": "error",
+        "anti-slop/no-module-mocking": "error",
+        "anti-slop/no-object-parameters": "error",
+        "anti-slop/no-reflect-apply": "error",
+        "anti-slop/no-reflect-get": "error",
+        "anti-slop/no-runtime-typeof": "error",
+        "anti-slop/no-shape-in-symbol-names": "error",
+        "anti-slop/no-unknown-parameters": "error",
+        "anti-slop/no-unknown-returns": "error",
+        "anti-slop/no-unknown-type-aliases": "error",
+        "anti-slop/no-unsafe-dictionary-type": "error",
+        "anti-slop/no-widen-then-assert": "error",
+        "anti-slop/require-readable-spacing": "error",
+        "anti-slop/require-safety-comment-for-type-assertion": "error",
+        "oxc/no-async-await": "off",
+        "oxc/no-optional-chaining": "off",
+        "oxc/no-rest-spread-properties": "off",
+        "unicorn/no-null": "off",
+        "eslint/one-var": "off",
+        "eslint/sort-keys": "off",
+        "eslint/no-undefined": "off",
+        // Direct contradiction with eslint/no-ternary (pedantic): the project
+        // style forbids ternaries, this rule requires them.
+        "unicorn/prefer-ternary": "off",
+        // Oxfmt normalizes hexadecimal digits to lowercase.
+        "unicorn/number-literal-case": "off",
+        // Contradiction with require-await on functions returning a Promise
+        // conditionally.
+        "typescript/promise-function-async": "off",
+        // Deep-readonly required on every array parameter: massive cost
+        // (500+ diagnostics) for a marginal safety benefit, since mutability
+        // does not exist at runtime.
+        "typescript/prefer-readonly-parameter-types": "off",
+        "eslint/func-style": ["warn", "declaration"],
+        "eslint/no-use-before-define": ["warn", { "functions": false, "classes": false, "variables": true }],
+        "eslint/no-magic-numbers": ["warn", { "ignore": [0, 1, -1, 2] }],
+        // Import declaration order belongs to Oxfmt (import sorting);
+        // alphabetical ordering of each import's members remains checked.
+        "eslint/sort-imports": ["warn", { "ignoreDeclarationSort": true, "ignoreCase": true }]
+    },
+    "overrides": [
+        {
+            "files": [
+                "src/review/pipeline.ts",
+                "src/review/pipeline-steps.ts",
+                "src/review/verifier.ts",
+                "src/review/retry.ts"
+            ],
+            "rules": {
+                // The retry loop is sequential by nature (each attempt must
+                // wait for the previous result).
+                "eslint/no-await-in-loop": "off",
+                // Control flow (continue/break) is essential for the
+                // fail-fast vs continue-partial policy.
+                "eslint/no-continue": "off",
+                // Readable ternaries are preferable to if/else in verdict
+                // computations.
+                "eslint/no-ternary": "off",
+                "unicorn/no-nested-ternary": "off",
+                // Finding provenance uses non-null assertions after explicit
+                // verification.
+                "typescript/no-non-null-assertion": "off",
+                "eslint/id-length": "off",
+                // These files orchestrate fan-out, adjudication and the
+                // deadline; their signatures reflect those contracts.
+                "eslint/max-statements": "off",
+                "eslint/max-lines-per-function": "off",
+                "eslint/max-lines": "off",
+                "eslint/max-params": "off",
+                "eslint/no-magic-numbers": "off",
+                "typescript/no-unsafe-type-assertion": "off"
+            }
+        },
+        {
+            "files": ["src/intelligence/project.ts", "src/intelligence/project-sections.ts"],
+            "rules": {
+                // Projection layout and ranked-list rendering are sequential
+                // branches over the ReviewMap sections; the fitting state
+                // machine, its counters and the renderers form one unit.
+                "eslint/max-statements": "off",
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["src/concurrency.ts"],
+            "rules": {
+                // Worker loop: each worker awaits one item at a time by design.
+                "eslint/no-await-in-loop": "off"
+            }
+        },
+        {
+            "files": ["src/review/agents.ts"],
+            "rules": {
+                // Deterministic construction of a small agent list.
+                "eslint/max-statements": "off",
+                // Routing literals match the declared model-ref contracts.
+                "anti-slop/no-known-value-widening": "off"
+            }
+        },
+        {
+            "files": ["src/logger.ts"],
+            "rules": {
+                // Stable log adapter, outside the scope of this phase's cutover.
+                "unicorn/max-nested-calls": "off",
+                "typescript/strict-boolean-expressions": "off",
+                "typescript/no-duplicate-type-constituents": "off",
+                "typescript/no-unnecessary-condition": "off",
+                // Log fields carry arbitrary caller data by contract.
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": ["src/action/run.ts", "src/action/state.ts"],
+            "rules": {
+                // Orchestration glue code is naturally long and multi-step:
+                // that is its role.
+                "eslint/max-statements": "off",
+                "eslint/max-lines": "off",
+                "eslint/max-lines-per-function": "off",
+                "eslint/prefer-destructuring": "off",
+                "eslint/no-ternary": "off",
+                "unicorn/prefer-export-from": "off",
+                "eslint/sort-imports": "off",
+                "typescript/no-unsafe-type-assertion": "off",
+                "typescript/prefer-optional-chain": "off",
+                "typescript/no-unnecessary-condition": "off"
+            }
+        },
+        {
+            "files": ["src/action/state.ts"],
+            "rules": {
+                // JSON metadata parsing requires several sequential type
+                // checks.
+                "eslint/max-statements": "off",
+                "eslint/prefer-destructuring": "off",
+                "typescript/no-unsafe-type-assertion": "off",
+                "typescript/prefer-optional-chain": "off",
+                "typescript/no-unnecessary-condition": "off"
+            }
+        },
+        {
+            "files": ["tests/review/pipeline.test.ts"],
+            "rules": {
+                // 10 pipeline integration tests: the length is justified.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/analysis/diff.test.ts"],
+            "rules": {
+                // The coverage-plan state machine: allocation, classification,
+                // priority ordering and rendering cases in one file.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/review/prompts.test.ts"],
+            "rules": {
+                // Prompt coverage spans every embedded template and builder.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/action/state.test.ts", "tests/artifact/review.test.ts"],
+            "rules": {
+                // The renderer provenance matrix and the compiled-artifact
+                // provider payload assertions belong with their fixtures.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/integration/action.test.ts"],
+            "rules": {
+                // The plug-and-play scenario keeps server, workspace and
+                // assertions in one readable fixture.
+                "eslint/max-lines": "off",
+                // Harness and GitHub API fixtures over schemaless payloads.
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": [
+                "tests/intelligence/review-map.test.ts",
+                "tests/intelligence/project.test.ts",
+                "tests/intelligence/pre-pass.test.ts",
+                "tests/analysis/risk.test.ts"
+            ],
+            "rules": {
+                // BASE/HEAD fixture builders and their assertions belong together.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/cli/local.test.ts", "tests/vcs/local.test.ts"],
+            "rules": {
+                // These scenarios keep repository, stream, process, Octokit and
+                // git fixture hosts with their assertions.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/config/load.test.ts"],
+            "rules": {
+                // Config loading spans merge, validation, routing and override
+                // identifier cases in one file.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/cli/forge.test.ts", "tests/vcs/github.test.ts", "tests/workspace/trusted.test.ts"],
+            "rules": {
+                // Octokit and git fixture hosts stay with the trust, mapping
+                // and isolation assertions they serve.
+                "eslint/max-lines": "off"
+            }
+        },
+        {
+            "files": ["tests/**"],
+            "rules": {
+                "eslint/max-statements": "off",
+                "eslint/max-lines-per-function": "off",
+                "eslint/no-magic-numbers": "off",
+                "eslint/no-await-in-loop": "off",
+                // Fixture builders take the values that make a case distinct;
+                // an options object per builder would hide them.
+                "eslint/max-params": "off",
+                // Test fakes double the real SDK types; a structural assertion
+                // is legitimate there.
+                "typescript/no-unsafe-type-assertion": "off",
+                // bun:test types do not model .rejects as Thenable.
+                "typescript/await-thenable": "off"
+            }
+        },
+        {
+            "files": ["scripts/**"],
+            "rules": {
+                // CLI scripts: console output and exit code are the contract.
+                "eslint/no-console": "off",
+                "unicorn/no-process-exit": "off"
+            }
+        },
+        {
+            "files": ["scripts/benchmark-action.ts", "scripts/benchmark-intelligence.ts"],
+            "rules": {
+                // Timing runs are sequential by design: parallel runs would
+                // contend for CPU, disk and network and invalidate the numbers.
+                // The linear measurement flow is the point of this script.
+                "eslint/no-await-in-loop": "off",
+                "eslint/max-statements": "off",
+                "eslint/max-lines": "off",
+                "eslint/max-lines-per-function": "off"
+            }
+        },
+        {
+            "files": ["src/vcs/errors.ts", "src/action/errors.ts"],
+            "rules": {
+                // Two tiny, coherent typed errors per domain.
+                "eslint/max-classes-per-file": "off"
+            }
+        },
+        {
+            "files": ["src/vcs/github.ts"],
+            "rules": {
+                // The adapter materializes nothing: GitHub returns patch content
+                // with the file list, so the interface method has no state to
+                // read and no instance member to use.
+                "eslint/class-methods-use-this": "off"
+            }
+        },
+        {
+            "files": ["src/vcs/local.ts"],
+            "rules": {
+                // Git token-stream parsing and a bounded worker loop: `continue`
+                // guards, sequential ref probing, one await per worker read, and
+                // explicit parseInt for Git's numeric tokens are the clear form.
+                "eslint/no-continue": "off",
+                "eslint/no-await-in-loop": "off",
+                "eslint/max-statements": "off",
+                "eslint/max-lines": "off",
+                "unicorn/prefer-number-coercion": "off"
+            }
+        },
+        {
+            "files": ["src/cli/local.ts"],
+            "rules": {
+                // The local review entrypoint orchestrates parsing, credentials,
+                // GitHub context, runtime creation and output in long multi-step
+                // functions; ternaries select optional context fields.
+                "eslint/no-ternary": "off",
+                "eslint/max-statements": "off",
+                "eslint/max-lines": "off",
+                "eslint/max-lines-per-function": "off"
+            }
+        },
+        {
+            // Anti-slop scoped regrouping: each entry below replaces repeated
+            // same-rule, same-architectural-reason local suppressions in one
+            // coherent file. Narrowest scope that covers the repetitions; every
+            // other rule/file keeps local suppressions.
+            "files": ["src/engine/session.ts"],
+            "rules": {
+                // Embedded-engine boundary module: every engine value enters as
+                // unknown/schemaless and is narrowed by per-site readers, guards
+                // and type predicates.
+                "anti-slop/no-unsafe-dictionary-type": "off",
+                "anti-slop/no-runtime-typeof": "off",
+                "anti-slop/no-unknown-parameters": "off"
+            }
+        },
+        {
+            "files": ["src/engine/config.ts"],
+            "rules": {
+                // The engine config document is an open bag (provider settings,
+                // overlays, MCP blocks) consumed by the host.
+                "anti-slop/no-unsafe-dictionary-type": "off",
+                "anti-slop/no-known-value-widening": "off"
+            }
+        },
+        {
+            "files": ["src/config/load.ts"],
+            "rules": {
+                // Recursive merge over YAML-decoded config values; the merge
+                // map is open by design.
+                "anti-slop/no-unsafe-dictionary-type": "off",
+                "anti-slop/no-known-value-widening": "off"
+            }
+        },
+        {
+            "files": ["src/cli/credentials.ts"],
+            "rules": {
+                // The credential store holds schemaless provider JSON; values
+                // are narrowed at the decode boundaries.
+                "anti-slop/no-unsafe-dictionary-type": "off",
+                "anti-slop/no-runtime-typeof": "off"
+            }
+        },
+        {
+            "files": ["src/contracts/review.ts"],
+            "rules": {
+                // External model output is parsed via Zod at this boundary; the
+                // generated JSON Schema is arbitrary JSON.
+                "anti-slop/no-unsafe-dictionary-type": "off",
+                "anti-slop/no-unknown-parameters": "off"
+            }
+        },
+        {
+            "files": ["src/native/assets.ts"],
+            "rules": {
+                // Intentional narrowing in type predicates over embedded and
+                // manifest data.
+                "anti-slop/no-runtime-typeof": "off"
+            }
+        },
+        {
+            "files": ["tests/helpers/review-contracts.ts"],
+            "rules": {
+                // Schemaless JSON test-double helpers; narrowing happens at
+                // the call sites that assert on them.
+                "anti-slop/no-unsafe-dictionary-type": "off",
+                "anti-slop/no-runtime-typeof": "off",
+                "anti-slop/no-unknown-parameters": "off",
+                "anti-slop/no-unknown-returns": "off"
+            }
+        },
+        {
+            "files": ["tests/helpers/provider-messages.ts", "tests/helpers/fake-artifact-provider.ts"],
+            "rules": {
+                // Test doubles over schemaless provider payloads; narrowing
+                // happens at the call sites that assert on them.
+                "anti-slop/no-runtime-typeof": "off",
+                "anti-slop/no-unknown-parameters": "off"
+            }
+        },
+        {
+            "files": ["tests/helpers/fake-anthropic.ts"],
+            "rules": {
+                // Fake provider payloads recorded per call; narrowing happens
+                // at the call sites that assert on them.
+                "anti-slop/no-runtime-typeof": "off",
+                "anti-slop/no-unknown-parameters": "off"
+            }
+        },
+        {
+            "files": ["tests/vcs/github.test.ts"],
+            "rules": {
+                // Octokit fakes over schemaless SDK payloads.
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": ["tests/logger.test.ts"],
+            "rules": {
+                // Mirrors the logger data contract (Record<string, unknown>).
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": ["tests/cli/local.test.ts"],
+            "rules": {
+                // Capture slots filled by the exercised code plus Octokit SDK fakes.
+                "anti-slop/no-known-value-widening": "off",
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": ["tests/cli/forge.test.ts"],
+            "rules": {
+                // Octokit SDK fakes; shapes asserted by the cases.
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": ["tests/cli/oauth.test.ts"],
+            "rules": {
+                // Harness records schemaless payloads for later assertions.
+                "anti-slop/no-unsafe-dictionary-type": "off"
+            }
+        },
+        {
+            "files": ["scripts/verify-native-assets.ts"],
+            "rules": {
+                // Arg-parser slots; annotations declare the collected shape.
+                "anti-slop/no-known-value-widening": "off"
+            }
+        },
+        {
+            "files": ["tests/action/run.test.ts"],
+            "rules": {
+                // Capture slots filled by the exercised code.
+                "anti-slop/no-known-value-widening": "off"
+            }
+        },
+        {
+            "files": [
+                "src/action/entry.ts",
+                "src/analysis/diff.ts",
+                "src/cli/credentials.ts",
+                "src/contracts/review.ts",
+                "src/engine/oauth-credentials.ts",
+                "src/engine/runtime.ts",
+                "src/intelligence/measure-scc.ts",
+                "src/intelligence/pre-pass.ts",
+                "src/intelligence/render.ts",
+                "src/review/prompts.ts",
+                "tests/action/resolve-engine.test.ts",
+                "tests/action/run.test.ts",
+                "tests/config/examples.test.ts",
+                "tests/contracts/review.test.ts",
+                "tests/engine/large-review.test.ts",
+                "tests/engine/native-provider.test.ts",
+                "tests/engine/oauth-credentials.test.ts",
+                "tests/helpers/fake-anthropic.ts",
+                "tests/review/agents.test.ts",
+                "tests/security/hostile-workspace.test.ts"
+            ],
+            "rules": {
+                // Readability blank-line enforcement (anti-slop
+                // require-readable-spacing) moved these previously-compliant
+                // files just over the 300-line cap; content is unchanged.
+                "eslint/max-lines": "off"
+            }
+        }
+    ],
+    "ignorePatterns": ["node_modules/**", "coverage/**", "bun.lock", ".agents/**", "tools/oxlint/anti-slop/**"],
+    // Vendored Oxlint JS plugin (anti-slop, see tools/oxlint/anti-slop/UPSTREAM.md).
+    // The Effect entry point is vendored but intentionally not registered:
+    // SAKRE is not an Effect-native application.
+    "jsPlugins": [{ "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }],
+    // Type-aware analysis (tsgo) motivated by the plan: type-aware rules
+    // enabled on top of the categories above.
+    "options": {
+        "typeAware": true
+    }
+}

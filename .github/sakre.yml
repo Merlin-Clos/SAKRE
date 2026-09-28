@@ -1,0 +1,17 @@
+# SAKRE self-review configuration (this repository reviewing itself).
+# Only overrides live here: provider, model and credentials come from the
+# workflow inputs and secrets at runtime.
+classification:
+    # Defaults repeated verbatim: a declared list replaces the embedded list,
+    # so every default must be restated alongside the project addition.
+    vendorPatterns:
+        - '**/vendor/**'
+        - '**/node_modules/**'
+        - '**/third_party/**'
+        - '**/third-party/**'
+review:
+    # Local tooling (see tools/oxlint/anti-slop/UPSTREAM.md): dev-only helpers
+    # owned upstream, never automatic review targets. Excluded from agent
+    # context but kept Git-normal, classified and tools-readable.
+    exclude:
+        - 'tools/oxlint/anti-slop/**'

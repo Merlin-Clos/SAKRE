@@ -1,0 +1,82 @@
+[
+    {
+        "name": "small isolated change",
+        "repository": { "recognizedFilesCount": 1000, "physicalLines": 100000 },
+        "groups": [{ "pathPrefix": "src/ui/button", "count": 1, "additions": 2, "deletions": 0 }],
+        "expected": {
+            "changedFilesCount": 1,
+            "changedLines": 2,
+            "volumeScore": 0.196,
+            "fileRatio": 0.001,
+            "lineRatio": 0.00002,
+            "volumeTier": "lite",
+            "tier": "lite",
+            "escalations": [],
+            "requiredSpecialists": []
+        }
+    },
+    {
+        "name": "medium service refactor",
+        "repository": { "recognizedFilesCount": 1000, "physicalLines": 100000 },
+        "groups": [{ "pathPrefix": "src/service/module", "count": 20, "additions": 75, "deletions": 0 }],
+        "expected": {
+            "changedFilesCount": 20,
+            "changedLines": 1500,
+            "volumeScore": 15.6,
+            "fileRatio": 0.02,
+            "lineRatio": 0.015,
+            "volumeTier": "standard",
+            "tier": "standard",
+            "escalations": [],
+            "requiredSpecialists": ["performance"]
+        }
+    },
+    {
+        "name": "large generated migration",
+        "repository": { "recognizedFilesCount": 1000, "physicalLines": 100000 },
+        "groups": [{ "pathPrefix": "src/generated/item", "count": 150, "additions": 30, "deletions": 0 }],
+        "expected": {
+            "changedFilesCount": 150,
+            "changedLines": 4500,
+            "volumeScore": 63,
+            "fileRatio": 0.15,
+            "lineRatio": 0.045,
+            "volumeTier": "hard",
+            "tier": "hard",
+            "escalations": [],
+            "requiredSpecialists": ["performance"]
+        }
+    },
+    {
+        "name": "small authentication change",
+        "repository": { "recognizedFilesCount": 1000, "physicalLines": 100000 },
+        "groups": [{ "pathPrefix": "auth/login", "count": 1, "additions": 4, "deletions": 0 }],
+        "expected": {
+            "changedFilesCount": 1,
+            "changedLines": 4,
+            "volumeScore": 0.212,
+            "fileRatio": 0.001,
+            "lineRatio": 0.00004,
+            "volumeTier": "lite",
+            "tier": "standard",
+            "escalations": ["critical-paths", "security"],
+            "requiredSpecialists": ["security"]
+        }
+    },
+    {
+        "name": "small repository ratio spike",
+        "repository": { "recognizedFilesCount": 10, "physicalLines": 100000 },
+        "groups": [{ "pathPrefix": "src/core/file", "count": 3, "additions": 2, "deletions": 0 }],
+        "expected": {
+            "changedFilesCount": 3,
+            "changedLines": 6,
+            "volumeScore": 0.588,
+            "fileRatio": 0.3,
+            "lineRatio": 0.00006,
+            "volumeTier": "lite",
+            "tier": "hard",
+            "escalations": ["volume-ratio"],
+            "requiredSpecialists": []
+        }
+    }
+]

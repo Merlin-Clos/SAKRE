@@ -1,0 +1,77 @@
+name: 'SAKRE'
+description: 'AI code review engine - configurable, safe, generic'
+inputs:
+    github_token:
+        description: 'Token for the target repository: read the pull request and create or update its issue comment. Normally ${{ github.token }}.'
+        required: true
+    engine_token:
+        description: 'Token with Contents: Read on the SAKRE repository, used only to download the engine when that repository is private. Falls back to the SAKRE_ENGINE_TOKEN environment variable.'
+        required: false
+    provider:
+        description: 'AI provider family (anthropic or openai-compatible)'
+        required: false
+    provider_api_key:
+        description: 'API key for the selected provider'
+        required: false
+    provider_base_url:
+        description: 'Base URL for openai-compatible providers'
+        required: false
+    default_model:
+        description: 'Global fallback model; models.routing cells and agent defaults take precedence'
+        required: false
+    agent_name:
+        description: 'Public reviewer identity used as @agent_name in PR comments'
+        required: false
+        default: 'sakre'
+    allowed_author_associations:
+        description: 'Comma-separated GitHub author associations'
+        required: false
+        default: 'OWNER,MEMBER,COLLABORATOR'
+    config_path:
+        description: 'Path to the repository config file (relative to repo root)'
+        required: false
+        default: '.github/sakre.yml'
+    mock_mode:
+        description: 'Run without calling the AI provider'
+        required: false
+        default: 'false'
+    force_over_budget:
+        description: 'Review a diff above the configured budget; coverage becomes partial'
+        required: false
+        default: 'false'
+runs:
+    using: 'composite'
+    steps:
+        - name: 'Resolve and run the standalone engine'
+          if: ${{ runner.os != 'Windows' }}
+          shell: bash
+          run: bash "$GITHUB_ACTION_PATH/action/resolve-engine.sh"
+          env:
+              INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+              INPUT_ENGINE_TOKEN: ${{ inputs.engine_token }}
+              INPUT_PROVIDER: ${{ inputs.provider }}
+              INPUT_PROVIDER_API_KEY: ${{ inputs.provider_api_key }}
+              INPUT_PROVIDER_BASE_URL: ${{ inputs.provider_base_url }}
+              INPUT_DEFAULT_MODEL: ${{ inputs.default_model }}
+              INPUT_AGENT_NAME: ${{ inputs.agent_name }}
+              INPUT_ALLOWED_AUTHOR_ASSOCIATIONS: ${{ inputs.allowed_author_associations }}
+              INPUT_CONFIG_PATH: ${{ inputs.config_path }}
+              INPUT_MOCK_MODE: ${{ inputs.mock_mode }}
+              INPUT_FORCE_OVER_BUDGET: ${{ inputs.force_over_budget }}
+
+        - name: 'Resolve and run the standalone engine (Windows)'
+          if: ${{ runner.os == 'Windows' }}
+          shell: pwsh
+          run: '& "$env:GITHUB_ACTION_PATH/action/resolve-engine.ps1"'
+          env:
+              INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+              INPUT_ENGINE_TOKEN: ${{ inputs.engine_token }}
+              INPUT_PROVIDER: ${{ inputs.provider }}
+              INPUT_PROVIDER_API_KEY: ${{ inputs.provider_api_key }}
+              INPUT_PROVIDER_BASE_URL: ${{ inputs.provider_base_url }}
+              INPUT_DEFAULT_MODEL: ${{ inputs.default_model }}
+              INPUT_AGENT_NAME: ${{ inputs.agent_name }}
+              INPUT_ALLOWED_AUTHOR_ASSOCIATIONS: ${{ inputs.allowed_author_associations }}
+              INPUT_CONFIG_PATH: ${{ inputs.config_path }}
+              INPUT_MOCK_MODE: ${{ inputs.mock_mode }}
+              INPUT_FORCE_OVER_BUDGET: ${{ inputs.force_over_budget }}

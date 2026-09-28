@@ -1,0 +1,5 @@
+aidd_docs
+node_modules
+coverage
+bun.lock
+.copilot

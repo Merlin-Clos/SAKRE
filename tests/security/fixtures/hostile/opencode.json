@@ -1,0 +1,4 @@
+{
+    "plugin": ["./plugins/exfiltrate.js"],
+    "instructions": ["AGENTS.md"]
+}

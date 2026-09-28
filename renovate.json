@@ -1,0 +1,51 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+    "rangeStrategy": "pin",
+    "ignorePaths": [
+        "**/node_modules/**",
+        "**/bower_components/**",
+        "**/dist-release/**",
+        "**/__tests__/**",
+        "**/test/**",
+        "**/tests/**",
+        "**/__fixtures__/**"
+    ],
+    "github-actions": {
+        "managerFilePatterns": ["/^examples\\/workflow\\.ya?ml$/"]
+    },
+    "lockFileMaintenance": {
+        "enabled": true,
+        "schedule": ["before 5am on Monday"]
+    },
+    "packageRules": [
+        {
+            "description": "Group GitHub Actions and runner updates",
+            "matchManagers": ["github-actions"],
+            "groupName": "github actions"
+        },
+        {
+            "description": "Group the Action runtime libraries",
+            "matchPackageNames": ["/^@actions\\//"],
+            "groupName": "action runtime"
+        },
+        {
+            "description": "Keep the embedded engine SDK on one reviewed upgrade path.",
+            "matchPackageNames": ["@opencode/sdk"],
+            "groupName": "embedded engine"
+        },
+        {
+            "description": "Group pinned build, typecheck, lint and format tooling",
+            "matchPackageNames": [
+                "bun",
+                "bun-types",
+                "typescript",
+                "@types/node",
+                "oxlint",
+                "oxlint-tsgolint",
+                "oxfmt"
+            ],
+            "groupName": "development tooling"
+        }
+    ]
+}

@@ -1,0 +1,294 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - 'v*.*.*'
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    validate:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+              with:
+                  bun-version-file: .bun-version
+
+            # The pin generator and the composite resolver accept only vX.Y.Z,
+            # so reject any other tag before five native builds are spent.
+            - name: Validate the release tag shape
+              run: |
+                  if ! printf '%s' "$GITHUB_REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+                      echo "::error::The release tag must look like v1.2.3 (no prerelease or build suffix): $GITHUB_REF_NAME"
+                      exit 1
+                  fi
+
+            - name: Verify exact release version
+              run: >-
+                  bun --eval
+                  "import pkg from './package.json' with { type: 'json' };
+                  if ('v' + pkg.version !== process.env.GITHUB_REF_NAME)
+                  throw new Error('Tag must equal package version: v' + pkg.version);"
+
+            - name: Install exact dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Run release gates
+              run: |
+                  bun run format:check
+                  bun run lint
+                  bun run typecheck
+                  bun run test
+
+    build:
+        needs: validate
+        continue-on-error: true
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - target: linux-x64
+                      runner: ubuntu-22.04
+                      artifact: sakre-linux-x64
+                    - target: linux-arm64
+                      runner: ubuntu-22.04-arm
+                      artifact: sakre-linux-arm64
+                    # macos-15-intel is the current GitHub-hosted Intel macOS label
+                    # for public and private repositories. macos-13 was retired and
+                    # jobs on its label stay queued forever. Evidence:
+                    # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+                    - target: darwin-x64
+                      runner: macos-15-intel
+                      artifact: sakre-darwin-x64
+                    - target: darwin-arm64
+                      runner: macos-latest
+                      artifact: sakre-darwin-arm64
+                    - target: windows-x64
+                      runner: windows-latest
+                      artifact: sakre-windows-x64.exe
+        runs-on: ${{ matrix.runner }}
+        # `continue-on-error` keeps a failing target from blocking the others,
+        # and the timeout bounds a leg that starts but never finishes.
+        timeout-minutes: 90
+        steps:
+            - name: Checkout validated release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+              with:
+                  bun-version-file: .bun-version
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Verify pinned native assets
+              run: bun scripts/verify-native-assets.ts --target ${{ matrix.target }}
+
+            - name: Build standalone engine
+              run: bun scripts/build-release.ts --target ${{ matrix.target }}
+
+            - name: Run artifact tests
+              if: ${{ !startsWith(matrix.target, 'linux-') }}
+              shell: bash
+              env:
+                  SAKRE_ENGINE_BINARY: ${{ github.workspace }}/dist-release/${{ matrix.artifact }}
+              run: bun test tests/artifact tests/integration
+
+            - name: Create Linux binary checksum
+              if: ${{ startsWith(matrix.target, 'linux-') }}
+              shell: bash
+              run: cd dist-release && sha256sum "${{ matrix.artifact }}" > "${{ matrix.artifact }}.sha256"
+
+            - name: Upload Linux artifact for compatibility tests
+              if: ${{ startsWith(matrix.target, 'linux-') }}
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+              with:
+                  name: ${{ matrix.artifact }}
+                  path: |
+                      dist-release/${{ matrix.artifact }}
+                      dist-release/${{ matrix.artifact }}.gz
+                      dist-release/${{ matrix.artifact }}.sha256
+                  if-no-files-found: error
+
+            - name: Upload non-Linux artifact
+              if: ${{ !startsWith(matrix.target, 'linux-') }}
+              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+              with:
+                  name: ${{ matrix.artifact }}
+                  path: dist-release/${{ matrix.artifact }}.gz
+                  if-no-files-found: error
+
+    linux-compatibility:
+        needs: build
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - runner: ubuntu-22.04
+                      artifact: sakre-linux-x64
+                      experimental: false
+                    - runner: ubuntu-24.04
+                      artifact: sakre-linux-x64
+                      experimental: false
+                    - runner: ubuntu-26.04
+                      artifact: sakre-linux-x64
+                      experimental: true
+                    - runner: ubuntu-22.04-arm
+                      artifact: sakre-linux-arm64
+                      experimental: false
+                    - runner: ubuntu-24.04-arm
+                      artifact: sakre-linux-arm64
+                      experimental: false
+                    - runner: ubuntu-26.04-arm
+                      artifact: sakre-linux-arm64
+                      experimental: true
+        runs-on: ${{ matrix.runner }}
+        continue-on-error: ${{ matrix.experimental }}
+        timeout-minutes: 90
+        env:
+            SAKRE_ENGINE_BINARY: ${{ github.workspace }}/dist-release/${{ matrix.artifact }}
+        steps:
+            - name: Checkout validated release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+              with:
+                  bun-version-file: .bun-version
+
+            - name: Download the Ubuntu 22.04 build artifact
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+              with:
+                  name: ${{ matrix.artifact }}
+                  path: dist-release
+
+            - name: Verify downloaded binary identity
+              shell: bash
+              run: |
+                  chmod +x "$SAKRE_ENGINE_BINARY"
+                  (cd dist-release && sha256sum --check "${{ matrix.artifact }}.sha256")
+
+            - name: Report shared-library requirements
+              shell: bash
+              run: |
+                  ldd "$SAKRE_ENGINE_BINARY" | tee "$RUNNER_TEMP/sakre-ldd.txt"
+                  if grep -q 'not found' "$RUNNER_TEMP/sakre-ldd.txt"; then
+                      echo 'A required Linux shared library is missing.' >&2
+                      exit 1
+                  fi
+
+            - name: Smoke-test the downloaded binary
+              shell: bash
+              run: >-
+                  "$SAKRE_ENGINE_BINARY" --version
+
+            - name: Install test dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Run artifact and integration tests against the downloaded binary
+              run: bun test tests/artifact tests/integration
+
+    publish:
+        # `always()` publishes every artifact that passed its native test even
+        # when another target failed; the compatibility job gates release on
+        # the required Ubuntu 22.04/24.04 Linux artifact tests.
+        needs: [validate, build, linux-compatibility]
+        if: always() && needs.validate.result == 'success' && needs.linux-compatibility.result == 'success'
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout validated release tag
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+              with:
+                  bun-version-file: .bun-version
+
+            - name: Download verified engine artifacts
+              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+              with:
+                  path: dist-release
+                  merge-multiple: true
+
+            - name: Require both Linux architecture artifacts
+              run: |
+                  test -f dist-release/sakre-linux-x64.gz
+                  test -f dist-release/sakre-linux-arm64.gz
+
+            - name: Report the published targets
+              run: |
+                  echo "Artifacts that passed their native-runner test:"
+                  ls -1 dist-release/*.gz
+
+            - name: Generate and verify release hashes
+              run: |
+                  sha256sum dist-release/*.gz > SHA256SUMS
+                  sha256sum --check SHA256SUMS
+
+            - name: Generate the composite Action pin manifest
+              run: bun scripts/generate-engine-pins.ts --tag "$GITHUB_REF_NAME" --directory dist-release
+
+            # The composite Action verifies every downloaded engine against the
+            # pin committed in its own tree, so the pinned tree must contain the
+            # release it delivers. This step commits engine-pins.json on top of
+            # the release commit and finalizes the patch, minor and major tags on
+            # that pin commit before the GitHub Release exists. The push uses
+            # GITHUB_TOKEN, which does not start another workflow run.
+            - name: Commit the pin and finalize the release tags
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  git config user.name 'github-actions[bot]'
+                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+                  git add engine-pins.json
+                  if git diff --cached --quiet; then
+                      echo "The pin manifest already contains $GITHUB_REF_NAME; nothing to commit."
+                  else
+                      git commit -m "chore(release): pin engine artifacts for $GITHUB_REF_NAME"
+                  fi
+                  tags="$GITHUB_REF_NAME"
+                  if printf '%s' "$GITHUB_REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+                      tags="$tags $(printf '%s' "$GITHUB_REF_NAME" | cut -d. -f1-2) $(printf '%s' "$GITHUB_REF_NAME" | cut -d. -f1)"
+                  fi
+                  # shellcheck disable=SC2086 -- the tag list is deliberately split
+                  for name in $tags; do git tag -f "$name"; done
+                  git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+                  # shellcheck disable=SC2086 -- the tag list is deliberately split
+                  for name in $tags; do git push --force origin "refs/tags/$name"; done
+
+            - name: Publish version release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "$GITHUB_REF_NAME" dist-release/*.gz SHA256SUMS \
+                    --verify-tag \
+                    --generate-notes \
+                    --title "$GITHUB_REF_NAME" \
+                    --notes "Standalone SAKRE engine per platform (Bun-compiled, embedded rg/SCC, no runtime package installation). Each asset is gzip-compressed; the composite Action decompresses it and verifies the engine against its SHA-256 pin. Only targets whose artifact test passed on a native runner are attached. The composite Action resolves the same engine artifact and verifies it against the SHA-256 pin committed in engine-pins.json."

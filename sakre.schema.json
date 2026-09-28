@@ -1,0 +1,439 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "provider": {
+            "type": "string",
+            "enum": ["anthropic", "openai-compatible"]
+        },
+        "model": {
+            "type": "string",
+            "minLength": 1
+        },
+        "models": {
+            "type": "object",
+            "properties": {
+                "catalog": {
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "artificialAnalysisUrl": {
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "routing": {
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "default": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "lite": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "standard": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "hard": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "classification": {
+            "type": "object",
+            "properties": {
+                "lockfilePatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "vendorPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "assetPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "generatedPathPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "generatedMarkers": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "generatedExceptions": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "docsPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "testPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "configPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "dependencyManifestPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "criticalPathPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "securityPathPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "performancePathPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                },
+                "conventionPathPatterns": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "risk": {
+            "type": "object",
+            "properties": {
+                "thresholds": {
+                    "type": "object",
+                    "properties": {
+                        "liteMaxScore": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "standardMaxScore": {
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "weights": {
+                    "type": "object",
+                    "properties": {
+                        "changedFiles": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "changedLines": {
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ratios": {
+                    "type": "object",
+                    "properties": {
+                        "fileRatio": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1
+                        },
+                        "lineRatio": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "largeChangeLines": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                },
+                "escalations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "patterns": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                                }
+                            },
+                            "minTier": {
+                                "type": "string",
+                                "enum": ["standard", "hard"]
+                            },
+                            "addSpecialist": {
+                                "type": "string",
+                                "enum": ["security", "performance", "conventions"]
+                            }
+                        },
+                        "required": ["id", "patterns", "minTier"],
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "agents": {
+            "type": "object",
+            "properties": {
+                "disabled": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9][a-z0-9-]*$"
+                            },
+                            "objective": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "globs": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                                }
+                            }
+                        },
+                        "required": ["name", "objective", "globs"],
+                        "additionalProperties": false
+                    }
+                },
+                "plan": {
+                    "type": "object",
+                    "properties": {
+                        "lite": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "standard": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "hard": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    },
+                    "required": ["lite", "standard", "hard"],
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        },
+        "review": {
+            "type": "object",
+            "properties": {
+                "failurePolicy": {
+                    "type": "string",
+                    "enum": ["fail-fast", "continue-partial"]
+                },
+                "deadlineMinutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 60
+                },
+                "diffBudgetChars": {
+                    "type": "integer",
+                    "minimum": 20000,
+                    "maximum": 1000000
+                },
+                "exclude": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$)).+$"
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "tools": {
+            "type": "object",
+            "properties": {
+                "context7": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "url": {
+                            "type": "string",
+                            "format": "uri"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "web": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        },
+        "prompts": {
+            "type": "object",
+            "properties": {
+                "overrides": {
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string",
+                        "enum": [
+                            "shared",
+                            "correctness",
+                            "security",
+                            "performance",
+                            "conventions",
+                            "maintainability",
+                            "tests",
+                            "coordinator",
+                            "verifier"
+                        ]
+                    },
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[^\\\\]+\\.md$"
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "title": "SAKRE repository config (.github/sakre.yml)"
+}

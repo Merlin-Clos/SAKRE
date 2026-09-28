@@ -1,0 +1,47 @@
+name: AI code review
+
+on:
+    issue_comment:
+        types: [created]
+
+permissions:
+    contents: read
+    issues: write
+    pull-requests: read
+
+concurrency:
+    group: sakre-${{ github.event.issue.number }}
+    cancel-in-progress: false
+
+jobs:
+    review:
+        if: ${{ github.event.issue.pull_request }}
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout pull request head
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: refs/pull/${{ github.event.issue.number }}/head
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            # Default: run upstream SAKRE. Point `uses` at your fork
+            # if you publish your own engine and prompts.
+            - name: Run SAKRE
+              uses: Merlin-Clos/SAKRE@v1
+              with:
+                  github_token: '${{ github.token }}'
+                  # Only needed when the SAKRE repository is private:
+                  # a token with Contents: Read on that repository.
+                  engine_token: '${{ secrets.SAKRE_ENGINE_TOKEN }}'
+                  provider: '${{ vars.AI_REVIEW_PROVIDER }}'
+                  provider_api_key: '${{ secrets.AI_PROVIDER_API_KEY }}'
+                  provider_base_url: '${{ vars.AI_PROVIDER_BASE_URL }}'
+                  default_model: '${{ vars.AI_REVIEW_MODEL }}'
+                  # agent_name: acme-reviewer
+
+# Pull request commands:
+# @sakre
+# @sakre --force
+# @sakre --force-over-budget
+# @sakre --diagnostic

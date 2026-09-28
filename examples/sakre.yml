@@ -1,0 +1,42 @@
+# Copy to .github/sakre.yml in the consumer repository.
+# This file is read at the pull request base SHA.
+provider: anthropic
+model: claude-sonnet-4-5
+
+review:
+    failurePolicy: continue-partial
+    deadlineMinutes: 15
+
+agents:
+    disabled: []
+    roles:
+        - name: database-contracts
+          objective: Check schema compatibility and rollback safety.
+          globs:
+              - db/**
+              - '**/migrations/**'
+
+# Optional (agent, tier) model matrix. Resolution per active agent:
+# routing[agent][tier] -> routing[agent].default -> global model -> fail closed.
+# The catalog is optional metadata keyed by a routed model id.
+# models:
+#     catalog:
+#         gateway-fast:
+#             artificialAnalysisUrl: https://artificialanalysis.ai/models/example
+#     routing:
+#         coordinator: { lite: gateway-fast, standard: gateway-model-id, hard: gateway-model-id }
+#         correctness: { standard: gateway-model-id, hard: gateway-model-id }
+#         tests: { standard: gateway-model-id, hard: gateway-model-id }
+#         security: { hard: gateway-model-id }
+#         verifier: { lite: gateway-fast, standard: gateway-model-id, hard: gateway-model-id }
+
+tools:
+    context7:
+        enabled: false
+    web:
+        enabled: false
+
+# For an OpenAI-compatible gateway, use:
+# provider: openai-compatible
+# model: gateway-model-id
+# Then set AI_PROVIDER_BASE_URL in the workflow and use the gateway API key.

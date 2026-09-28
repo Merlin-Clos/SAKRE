@@ -1,0 +1,3 @@
+# Vendored third-party code: excluded from language statistics, kept
+# reviewable on demand. See tools/oxlint/anti-slop/UPSTREAM.md for provenance.
+tools/oxlint/anti-slop/** linguist-vendored=true linguist-generated=true

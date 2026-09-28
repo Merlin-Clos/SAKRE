@@ -37,7 +37,7 @@ SAKRE adds its own layer to these ideas: deterministic pre-analysis with a repos
 
 ## Tools
 
-SAKRE runs its agents through [OpenCode](https://opencode.ai), measures code with [SCC](https://github.com/boyter/scc) and [CCCC](https://github.com/boyter/cccc), and ships as a [Bun](https://bun.sh)-compiled binary per platform.
+SAKRE runs its agents through [OpenCode](https://opencode.ai), measures code with [SCC](https://github.com/boyter/scc) and [CCCC](https://github.com/moznion/cccc), and ships as a [Bun](https://bun.sh)-compiled binary per platform.
 
 ## License
 

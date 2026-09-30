@@ -1,6 +1,6 @@
 # SAKRE
 
-SAKRE is a configurable AI code review GitHub Action. A pull request comment starts a risk-based review: specialist agents run in parallel, a coordinator adjudicates their findings, and an independent verifier checks findings that can affect the result.
+SAKRE is a configurable AI code review GitHub Action or CLI. A pull request comment starts a risk-based review: specialist agents run in parallel, a coordinator adjudicates their findings, and an independent verifier checks findings that can affect the result.
 
 > SAKRE stands for "Scalable AI Kode Review Engine". The K is a nod to [KlodOnline](https://www.klod-online.com/), the project SAKRE originally grew out of. SAKRE is pronounced like the French word "sacre" ("sakr"), not "sakree".
 

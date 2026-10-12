@@ -2,6 +2,16 @@ import { expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
+test('direct develop and main pushes retain the same CI as pull requests', async () => {
+    const pushSchema = z.object({ branches: z.array(z.string()) });
+    const triggerSchema = z.object({ push: pushSchema, pull_request: z.null() });
+    const workflowSchema = z.object({ on: triggerSchema });
+    const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
+    const workflow = workflowSchema.parse(data);
+
+    expect(workflow.on.push.branches).toEqual(['main', 'develop']);
+});
+
 test('artifact jobs gate PR CI while release keeps bounded per-target publication', async () => {
     const stringList = z.array(z.string());
     const stringOrStringList = z.union([z.string(), stringList]);
@@ -44,7 +54,7 @@ test('artifact jobs gate PR CI while release keeps bounded per-target publicatio
     expect(ci.jobs['test-linux-compatibility']?.['continue-on-error']).toBe(
         ['$', '{{ matrix.experimental }}'].join('')
     );
-    expect(ciText).toContain('actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131');
+    expect(ciText).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(ciText).toContain('sha256sum --check');
     expect(ciText).toContain('chmod +x "$SAKRE_ENGINE_BINARY"');
     expect(ciText).toContain('"$SAKRE_ENGINE_BINARY" --version');
@@ -76,7 +86,7 @@ test('artifact jobs gate PR CI while release keeps bounded per-target publicatio
     expect(release.jobs['linux-compatibility']?.['continue-on-error']).toBe(
         ['$', '{{ matrix.experimental }}'].join('')
     );
-    expect(releaseText).toContain('actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131');
+    expect(releaseText).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseText).toContain('sha256sum --check');
     expect(releaseText).toContain('needs: [validate, build, linux-compatibility]');
     expect(releaseText).toContain('test -f dist-release/sakre-linux-arm64.gz');

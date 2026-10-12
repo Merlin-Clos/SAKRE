@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - develop
     pull_request:
 
 permissions:
@@ -44,7 +45,7 @@ jobs:
             - name: Oxlint
               run: bun run lint
 
-            - name: TypeScript Typecheck
+            - name: Bun Typecheck
               run: bun run typecheck
 
             - name: Unit, security and Action delivery tests
@@ -128,7 +129,7 @@ jobs:
 
             - name: Upload Linux artifact for compatibility tests
               if: ${{ startsWith(matrix.target, 'linux-') }}
-              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: ${{ matrix.artifact }}
                   path: |
@@ -146,7 +147,7 @@ jobs:
 
             - name: Upload non-Linux artifact
               if: ${{ !startsWith(matrix.target, 'linux-') }}
-              uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: ${{ matrix.artifact }}
                   path: dist-release/${{ matrix.artifact }}.gz
@@ -190,7 +191,7 @@ jobs:
                   bun-version-file: .bun-version
 
             - name: Download the Ubuntu 22.04 build artifact
-              uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: ${{ matrix.artifact }}
                   path: dist-release

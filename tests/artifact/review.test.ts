@@ -5,10 +5,12 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startFakeProvider } from '../helpers/fake-artifact-provider';
+import { DEFAULT_AGENT_PLAN } from '../../src/config/schema';
 import { nativeAssetFor } from '../../src/native/assets';
 import { nativeTargetFor, releaseArtifactName } from '../../src/native/platform';
 import { pinnedNativeAssetManifest } from '../../src/native/runtime';
 import { createRepository, fileExists, git, rev, systemBinary } from '../helpers/artifact-repository';
+import { startFakeResponses } from '../helpers/fake-responses';
 
 setDefaultTimeout(180_000);
 
@@ -23,6 +25,64 @@ if (target !== undefined) {
 const artifactAvailable = artifactPath !== '' && (await fileExists(artifactPath));
 
 describe('compiled engine artifact', () => {
+    test.skipIf(!artifactAvailable)(
+        'routes openai/gpt-6.1-sol to an offline provider and redacts its credential rejection',
+        async () => {
+            const root = await mkdtemp(path.join(tmpdir(), 'sakre-artifact-openai-'));
+            const apiKey = 'fake-standalone-openai-key';
+
+            const provider = startFakeResponses(
+                DEFAULT_AGENT_PLAN.hard.map(() => ({
+                    type: 'error',
+                    status: 401,
+                    body: { error: { message: `invalid key: ${apiKey}` } }
+                }))
+            );
+
+            try {
+                const repository = await createRepository(root);
+                const environment = await createArtifactEnvironment(root, provider.baseURL);
+                environment.SAKRE_PROVIDER_API_KEY = apiKey;
+
+                const result = await runArtifact(
+                    [
+                        'local',
+                        '--base',
+                        repository.baseSha,
+                        '--head',
+                        repository.headSha,
+                        '--repo',
+                        repository.rootDir,
+                        '--provider',
+                        'openai',
+                        '--model',
+                        'gpt-6.1-sol'
+                    ],
+                    environment,
+                    { cwd: repository.rootDir }
+                );
+
+                expect(result.exitCode).toBe(1);
+                expect(provider.requests.length).toBeGreaterThan(0);
+
+                for (const request of provider.requests) {
+                    expect(request).toMatchObject({
+                        path: '/v1/responses',
+                        model: 'gpt-6.1-sol',
+                        authHeaders: { authorization: `Bearer ${apiKey}` }
+                    });
+                }
+
+                expect(`${result.stdout}${result.stderr}`).toContain('[redacted]');
+                expect(`${result.stdout}${result.stderr}`).not.toContain(apiKey);
+                expect(`${result.stdout}${result.stderr}`).not.toContain('Model unavailable');
+            } finally {
+                await provider.stop();
+                await rm(root, { recursive: true, force: true });
+            }
+        }
+    );
+
     test.skipIf(!artifactAvailable)(
         'completes a review through the embedded engine with an isolated environment',
         async () => {

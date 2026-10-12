@@ -2,14 +2,15 @@ import { describe, expect, test } from 'bun:test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import nativeAssets from '../../native-assets.json' with { type: 'json' };
 import { measureCccc } from '../../src/intelligence/measure-cccc';
 import { resolvePinnedBinary } from '../helpers/native-binary';
 
-/* Real-binary proof of the CCCC 1.6.0 acquisition: deterministic normalization,
+/* Real-binary proof of the pinned CCCC acquisition: deterministic normalization,
    explicit unsupported files, and parse errors kept as data. Skips when the
    pinned binary is unavailable (CI provides it or the content-addressed cache). */
 
-const CCCC_VERSION = '1.6.0';
+const CCCC_VERSION = nativeAssets.tools.cccc.version;
 
 const ccccBinary = await resolvePinnedBinary('cccc', CCCC_VERSION, 'SAKRE_CCCC_BINARY');
 

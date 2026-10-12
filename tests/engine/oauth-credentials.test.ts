@@ -126,6 +126,22 @@ describe('persistent OAuth credentials', () => {
         expect(secrets).toContain('true');
     });
 
+    test('collects external credential metadata without inventing OAuth token values', () => {
+        const methodID = Schema.decodeUnknownSync(Integration.MethodID)('external-test');
+
+        const secrets = collectCredentialSecrets(
+            Credential.External.make({
+                type: 'external',
+                methodID,
+                metadata: { token: 'external-secret', nested: { account: 'private-account' } }
+            })
+        );
+
+        expect(secrets).toEqual(['external-secret', 'private-account']);
+        expect(collectCredentialSecrets(Credential.External.make({ type: 'external', methodID }))).toEqual([]);
+        expect(collectCredentialSecrets(oauth('access-secret'))).toEqual(['access-secret', 'refresh-secret']);
+    });
+
     test('serializes simultaneous writes to one credential without a partial value', async () => {
         const created = await createCredential('openai', 'shared', oauth('access-initial'), false);
         const options = layerOptions('openai', created.id);

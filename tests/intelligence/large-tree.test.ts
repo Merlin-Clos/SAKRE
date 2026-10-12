@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import nativeAssets from '../../native-assets.json' with { type: 'json' };
 import { defaultClassificationRules } from '../../src/analysis/classification';
 import { runIntelligencePrePass } from '../../src/intelligence/pre-pass';
 import type { VcsChangedFile } from '../../src/vcs/types';
@@ -20,7 +21,9 @@ const WINDOWS_COMMAND_LINE_LIMIT = 32_767;
 
 const sccBinary = await resolvePinnedBinary('scc', '4.1.0', 'SAKRE_SCC_BINARY');
 
-const ccccBinary = await resolvePinnedBinary('cccc', '1.6.0', 'SAKRE_CCCC_BINARY');
+const CCCC_VERSION = nativeAssets.tools.cccc.version;
+
+const ccccBinary = await resolvePinnedBinary('cccc', CCCC_VERSION, 'SAKRE_CCCC_BINARY');
 
 function git(cwd: string, args: readonly string[]): void {
     execFileSync('git', [...args], { cwd, encoding: 'utf8', stdio: 'ignore' });
@@ -98,12 +101,12 @@ describe('large tracked tree', () => {
                     sccBinaryPath: sccBinary,
                     ccccBinaryPath: ccccBinary,
                     sccVersion: '4.1.0',
-                    ccccVersion: '1.6.0'
+                    ccccVersion: CCCC_VERSION
                 });
 
                 expect(output.map.tools).toEqual({
                     scc: { version: '4.1.0', status: 'ok' },
-                    cccc: { version: '1.6.0', status: 'ok' }
+                    cccc: { version: CCCC_VERSION, status: 'ok' }
                 });
                 expect(output.baseMetrics.recognizedFilesCount).toBeGreaterThan(FILE_COUNT / 2);
                 expect(output.map.repository.head.files).toBeGreaterThan(FILE_COUNT / 2);

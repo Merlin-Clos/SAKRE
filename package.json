@@ -7,7 +7,7 @@
         "lint": "oxlint --deny-warnings --report-unused-disable-directives",
         "format": "oxfmt --write",
         "format:check": "oxfmt --check",
-        "typecheck": "tsc",
+        "typecheck": "bun check",
         "test": "bun test",
         "verify:native": "bun scripts/verify-native-assets.ts",
         "update:native": "bun scripts/update-native-assets.ts",
@@ -16,24 +16,24 @@
     "dependencies": {
         "@actions/core": "3.0.1",
         "@actions/github": "9.1.1",
-        "@opencode/core": "2.0.15",
-        "@opencode/schema": "2.0.15",
-        "@opencode/sdk": "2.0.15",
+        "@opencode/core": "2.0.26",
+        "@opencode/schema": "2.0.26",
+        "@opencode/sdk": "2.0.26",
         "commander": "15.0.0",
         "effect": "4.0.0-rc.112",
         "fflate": "0.8.3",
         "picomatch": "4.0.7",
         "yaml": "2.9.1",
-        "zod": "4.6.5"
+        "zod": "4.6.6"
     },
     "devDependencies": {
-        "@opencode/plugin": "2.0.15",
-        "@oxlint/plugins": "1.85.0",
+        "@opencode/plugin": "2.0.26",
+        "@oxlint/plugins": "1.87.0",
         "@types/picomatch": "4.0.3",
-        "bun-types": "1.4.2",
-        "oxfmt": "0.68.0",
-        "oxlint": "1.85.0",
-        "oxlint-tsgolint": "7.0.2003",
+        "bun-types": "1.4.3",
+        "oxfmt": "0.72.0",
+        "oxlint": "1.87.0",
+        "oxlint-tsgolint": "7.0.2004",
         "typescript": "7.0.2"
     }
 }

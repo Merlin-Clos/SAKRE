@@ -43,7 +43,8 @@ interface NativeHarness {
 
 async function startNativeHarness(
     modelID: string = MODEL_ID,
-    script: FakeResponsesReply[] = DEFAULT_SCRIPT
+    script: FakeResponsesReply[] = DEFAULT_SCRIPT,
+    providerID: string = PROVIDER_ID
 ): Promise<NativeHarness> {
     const root = await mkdtemp(path.join(tmpdir(), 'sakre-native-provider-'));
     const workspace = path.join(root, 'workspace');
@@ -52,7 +53,7 @@ async function startNativeHarness(
 
     try {
         const runtime = await createEmbeddedEngineRuntime({
-            providerID: PROVIDER_ID,
+            providerID,
             providerFamily: 'native',
             modelIds: [modelID],
             apiKey: API_KEY,
@@ -85,16 +86,19 @@ async function startNativeHarness(
     }
 }
 
-async function startNativeHost(): Promise<{ host: EngineHost; stop: () => Promise<void> }> {
+async function startNativeHost(
+    providerID = PROVIDER_ID,
+    modelID = MODEL_ID
+): Promise<{ host: EngineHost; stop: () => Promise<void> }> {
     const root = await mkdtemp(path.join(tmpdir(), 'sakre-native-catalogue-'));
     const workspace = path.join(root, 'workspace');
     await mkdir(workspace, { recursive: true });
 
     try {
         const host = await createEngineHost({
-            providerID: PROVIDER_ID,
+            providerID,
             providerFamily: 'native',
-            modelIds: [MODEL_ID],
+            modelIds: [modelID],
             apiKey: API_KEY,
             checkoutDir: workspace,
             pluginDir: await materializeEnginePlugin(path.join(root, 'plugin-cache')),
@@ -117,10 +121,10 @@ async function startNativeHost(): Promise<{ host: EngineHost; stop: () => Promis
     }
 }
 
-function agentCall(modelID = MODEL_ID): AiStructuredCall {
+function agentCall(modelID = MODEL_ID, providerID = PROVIDER_ID): AiStructuredCall {
     return {
         agentId: 'correctness',
-        model: { providerID: PROVIDER_ID, modelID },
+        model: { providerID, modelID },
         systemPrompt: 'SYSTEM MARKER',
         userPrompt: 'Reply with exactly: OK',
         retryPrompt: 'Reply with exactly: OK'
@@ -179,6 +183,33 @@ function findModel(models: unknown, id: string): Record<string, unknown> | undef
 }
 
 describe('native provider routing', () => {
+    test('discovers and dispatches openai/gpt-6.1-sol from the embedded catalogue', async () => {
+        const providerID = 'openai';
+        const modelID = 'gpt-6.1-sol';
+        const nativeHost = await startNativeHost(providerID, modelID);
+        hosts.push({ stop: nativeHost.stop });
+
+        const catalogue = await nativeHost.host.client.model.list({
+            location: { directory: nativeHost.host.directory }
+        });
+
+        const model = catalogue.data.find((entry) => entry.providerID === providerID && entry.modelID === modelID);
+
+        expect(model?.enabled).toBe(true);
+        expect(model?.package).toBe('@opencode/ai/providers/openai');
+
+        const harness = await startNativeHarness(modelID, DEFAULT_SCRIPT, providerID);
+        harnesses.push(harness);
+        const result = await harness.runtime.runStructured(agentCall(modelID, providerID));
+
+        expect(result.structured).toEqual(FINDINGS);
+        expect(harness.provider.requests[0]).toMatchObject({
+            path: '/v1/responses',
+            model: modelID,
+            authHeaders: { authorization: `Bearer ${API_KEY}` }
+        });
+    });
+
     test('resolves the routed model through the bundled catalogue with its provider package', async () => {
         const nativeHost = await startNativeHost();
         hosts.push({ stop: nativeHost.stop });

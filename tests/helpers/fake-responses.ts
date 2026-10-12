@@ -207,6 +207,10 @@ export function startFakeResponses(script: FakeResponsesReply[]): FakeResponsesP
         hostname: '127.0.0.1',
         port: 0,
         async fetch(request) {
+            if (request.method !== 'POST') {
+                return new Response('The offline fixture supports HTTP Responses only.', { status: 405 });
+            }
+
             const raw = await request.text();
             // SAFETY: the fake server parses the Responses request body; the model/input fields are read below.
             const parsed = JSON.parse(raw) as { model?: string; input?: unknown };

@@ -5,11 +5,42 @@ import { z } from 'zod';
 test('direct develop and main pushes retain the same CI as pull requests', async () => {
     const pushSchema = z.object({ branches: z.array(z.string()) });
     const triggerSchema = z.object({ push: pushSchema, pull_request: z.null() });
-    const workflowSchema = z.object({ on: triggerSchema });
+    const jobSchema = z.object({ if: z.string().optional() });
+
+    const workflowSchema = z.object({
+        on: triggerSchema,
+        jobs: z.object({
+            'quality-check': jobSchema,
+            'build-artifacts': jobSchema,
+            'test-linux-compatibility': jobSchema
+        })
+    });
+
     const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
     const workflow = workflowSchema.parse(data);
 
-    expect(workflow.on.push.branches).toEqual(['main', 'develop']);
+    expect(new Set(workflow.on.push.branches)).toEqual(new Set(['main', 'develop']));
+
+    for (const job of Object.values(workflow.jobs)) {
+        expect(job.if).toBeUndefined();
+    }
+});
+
+test.each([
+    { file: '.github/workflows/ci.yml', job: 'build-artifacts' },
+    { file: '.github/workflows/release.yml', job: 'build' }
+])('every artifact upload in $file uses the selected version', async ({ file, job }) => {
+    const stepSchema = z.object({ uses: z.string().optional() });
+    const jobSchema = z.object({ steps: z.array(stepSchema) });
+    const workflowSchema = z.object({ jobs: z.record(z.string(), jobSchema) });
+    const data: unknown = parseYaml(await Bun.file(file).text());
+    const workflow = workflowSchema.parse(data);
+
+    const uploads = workflow.jobs[job]?.steps
+        .map((step) => step.uses)
+        .filter((uses) => uses?.startsWith('actions/upload-artifact@') === true);
+
+    expect(uploads).toEqual(['actions/upload-artifact@v7.0.2', 'actions/upload-artifact@v7.0.2']);
 });
 
 test('artifact jobs gate PR CI while release keeps bounded per-target publication', async () => {

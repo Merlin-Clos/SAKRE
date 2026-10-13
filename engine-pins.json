@@ -1,4 +1,10 @@
 {
-    "tag": null,
-    "assets": {}
+    "tag": "v1.1.0",
+    "assets": {
+        "sakre-linux-x64.gz": "4246027845aa506705682422f1394f1eb32ad91c5bb28e3cdc4911f6d9594fc4",
+        "sakre-linux-arm64.gz": "92222610c779c9d274c45556e26988ea0367153d1a239c867ffa6994929957b4",
+        "sakre-darwin-x64.gz": "dfe84a76d5bef6c2d6512bb3453cbe162816c482b0c8df59b63976efebd950c3",
+        "sakre-darwin-arm64.gz": "7543f94666c1dc2b6d4f983f55fb3237b7e9ffb75a7de19fb7b630eb20f5faac",
+        "sakre-windows-x64.exe.gz": "13ee345fb8ca9b99e2017f26bc3d93fbe8d16245408f2e198258d743bd27f2a6"
+    }
 }

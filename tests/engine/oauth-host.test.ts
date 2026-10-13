@@ -171,10 +171,17 @@ test('production hosts select separate OAuth accounts without writing sessions t
 
         const connections = result.data.connections.filter((connection) => connection.type === 'credential');
         expect(connections.map((connection) => connection.id)).toEqual([expected]);
+        const models = await host.client.model.list({ location: { directory: workspace } });
+        const model = models.data.find((entry) => entry.providerID === 'openai' && entry.enabled);
+
+        if (model === undefined) {
+            throw new Error('The OAuth host has no enabled OpenAI model for the session-isolation test.');
+        }
+
         await host.client.sessions.create({
             location: { directory: workspace },
             title: expected,
-            model: { providerID: 'openai', id: 'gpt-5' }
+            model: { providerID: 'openai', id: model.id }
         });
     }
 

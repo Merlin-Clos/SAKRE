@@ -19,9 +19,11 @@ const FILE_COUNT = 1800;
 
 const WINDOWS_COMMAND_LINE_LIMIT = 32_767;
 
-const sccBinary = await resolvePinnedBinary('scc', '4.1.0', 'SAKRE_SCC_BINARY');
+const SCC_VERSION = nativeAssets.tools.scc.version;
 
 const CCCC_VERSION = nativeAssets.tools.cccc.version;
+
+const sccBinary = await resolvePinnedBinary('scc', SCC_VERSION, 'SAKRE_SCC_BINARY');
 
 const ccccBinary = await resolvePinnedBinary('cccc', CCCC_VERSION, 'SAKRE_CCCC_BINARY');
 
@@ -100,12 +102,12 @@ describe('large tracked tree', () => {
                     classification: defaultClassificationRules(),
                     sccBinaryPath: sccBinary,
                     ccccBinaryPath: ccccBinary,
-                    sccVersion: '4.1.0',
+                    sccVersion: SCC_VERSION,
                     ccccVersion: CCCC_VERSION
                 });
 
                 expect(output.map.tools).toEqual({
-                    scc: { version: '4.1.0', status: 'ok' },
+                    scc: { version: SCC_VERSION, status: 'ok' },
                     cccc: { version: CCCC_VERSION, status: 'ok' }
                 });
                 expect(output.baseMetrics.recognizedFilesCount).toBeGreaterThan(FILE_COUNT / 2);

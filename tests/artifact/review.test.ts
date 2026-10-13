@@ -11,6 +11,7 @@ import { nativeTargetFor, releaseArtifactName } from '../../src/native/platform'
 import { pinnedNativeAssetManifest } from '../../src/native/runtime';
 import { createRepository, fileExists, git, rev, systemBinary } from '../helpers/artifact-repository';
 import { startFakeResponses } from '../helpers/fake-responses';
+import { ANTHROPIC_TEST_MODEL, selectCatalogueModel } from '../helpers/catalogue-models';
 
 setDefaultTimeout(180_000);
 
@@ -26,8 +27,12 @@ const artifactAvailable = artifactPath !== '' && (await fileExists(artifactPath)
 
 describe('compiled engine artifact', () => {
     test.skipIf(!artifactAvailable)(
-        'routes openai/gpt-6.1-sol to an offline provider and redacts its credential rejection',
+        'routes a bundled OpenAI Responses model to an offline provider and redacts its credential rejection',
         async () => {
+            const model = selectCatalogueModel(
+                (entry) => entry.providerID === 'openai' && entry.package === '@opencode/ai/providers/openai'
+            );
+
             const root = await mkdtemp(path.join(tmpdir(), 'sakre-artifact-openai-'));
             const apiKey = 'fake-standalone-openai-key';
 
@@ -56,7 +61,7 @@ describe('compiled engine artifact', () => {
                         '--provider',
                         'openai',
                         '--model',
-                        'gpt-6.1-sol'
+                        model.id
                     ],
                     environment,
                     { cwd: repository.rootDir }
@@ -68,7 +73,7 @@ describe('compiled engine artifact', () => {
                 for (const request of provider.requests) {
                     expect(request).toMatchObject({
                         path: '/v1/responses',
-                        model: 'gpt-6.1-sol',
+                        model: model.modelID,
                         authHeaders: { authorization: `Bearer ${apiKey}` }
                     });
                 }
@@ -125,7 +130,7 @@ describe('compiled engine artifact', () => {
                         '--provider',
                         'anthropic',
                         '--model',
-                        'claude-sonnet-4-5'
+                        ANTHROPIC_TEST_MODEL
                     ],
                     artifactEnvironment({ home, cache, bin, isolatedPath, providerBaseURL: provider.baseURL }),
                     { cwd: repository.rootDir }
@@ -225,7 +230,7 @@ describe('compiled engine artifact', () => {
                         '--provider',
                         'anthropic',
                         '--model',
-                        'claude-sonnet-4-5',
+                        ANTHROPIC_TEST_MODEL,
                         '--instructions',
                         guidancePath
                     ],

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
-import { AiError, type AiStructuredCall } from '../../src/ai/runtime';
+import { AiError, type AiModelRoute, type AiStructuredCall } from '../../src/ai/runtime';
 import { createEngineHost, type EngineHost } from '../../src/engine/host';
 import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { createEmbeddedEngineRuntime, type EmbeddedEngineRuntime } from '../../src/engine/runtime';
@@ -15,6 +15,7 @@ import {
     resetLogSink
 } from '../../src/logger';
 import { releaseAfterSetupFailure } from '../helpers/engine-harness';
+import { selectCatalogueModel } from '../helpers/catalogue-models';
 import { type FakeResponsesProvider, type FakeResponsesReply, startFakeResponses } from '../helpers/fake-responses';
 import { rejectionOf } from '../helpers/rejection';
 
@@ -27,7 +28,17 @@ setDefaultTimeout(120_000);
 
 const PROVIDER_ID = 'opencode-go';
 
-const MODEL_ID = 'muse-spark-1.3-contributor';
+const PROVIDER_PACKAGE = '@opencode/ai/providers/openai';
+
+const CATALOGUE_MODEL = selectCatalogueModel(
+    (model) => model.providerID === PROVIDER_ID && model.package === PROVIDER_PACKAGE && model.variants.length > 0
+);
+
+const MODEL_ID = CATALOGUE_MODEL.id;
+
+type NativeModel = Pick<AiModelRoute, 'providerID' | 'modelID'>;
+
+const DEFAULT_MODEL = { providerID: PROVIDER_ID, modelID: MODEL_ID };
 
 const API_KEY = 'fake-opencode-go-key';
 
@@ -42,9 +53,8 @@ interface NativeHarness {
 }
 
 async function startNativeHarness(
-    modelID: string = MODEL_ID,
-    script: FakeResponsesReply[] = DEFAULT_SCRIPT,
-    providerID: string = PROVIDER_ID
+    model: NativeModel = DEFAULT_MODEL,
+    script: FakeResponsesReply[] = DEFAULT_SCRIPT
 ): Promise<NativeHarness> {
     const root = await mkdtemp(path.join(tmpdir(), 'sakre-native-provider-'));
     const workspace = path.join(root, 'workspace');
@@ -53,9 +63,9 @@ async function startNativeHarness(
 
     try {
         const runtime = await createEmbeddedEngineRuntime({
-            providerID,
+            providerID: model.providerID,
             providerFamily: 'native',
-            modelIds: [modelID],
+            modelIds: [model.modelID],
             apiKey: API_KEY,
             baseURL: provider.baseURL,
             checkoutDir: workspace,
@@ -87,8 +97,7 @@ async function startNativeHarness(
 }
 
 async function startNativeHost(
-    providerID = PROVIDER_ID,
-    modelID = MODEL_ID
+    model: NativeModel = DEFAULT_MODEL
 ): Promise<{ host: EngineHost; stop: () => Promise<void> }> {
     const root = await mkdtemp(path.join(tmpdir(), 'sakre-native-catalogue-'));
     const workspace = path.join(root, 'workspace');
@@ -96,9 +105,9 @@ async function startNativeHost(
 
     try {
         const host = await createEngineHost({
-            providerID,
+            providerID: model.providerID,
             providerFamily: 'native',
-            modelIds: [modelID],
+            modelIds: [model.modelID],
             apiKey: API_KEY,
             checkoutDir: workspace,
             pluginDir: await materializeEnginePlugin(path.join(root, 'plugin-cache')),
@@ -121,10 +130,10 @@ async function startNativeHost(
     }
 }
 
-function agentCall(modelID = MODEL_ID, providerID = PROVIDER_ID): AiStructuredCall {
+function agentCall(model: NativeModel = DEFAULT_MODEL): AiStructuredCall {
     return {
         agentId: 'correctness',
-        model: { providerID, modelID },
+        model,
         systemPrompt: 'SYSTEM MARKER',
         userPrompt: 'Reply with exactly: OK',
         retryPrompt: 'Reply with exactly: OK'
@@ -159,53 +168,36 @@ afterEach(async () => {
     }
 });
 
-// eslint-disable-next-line anti-slop/no-unsafe-dictionary-type -- type-guard predicate over the fake catalogue payload
-function isRecord(value: unknown): value is Record<string, unknown> {
-    // eslint-disable-next-line anti-slop/no-runtime-typeof -- type-guard narrowing of untrusted input; the predicate is the boundary
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-// eslint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- catalogue helper narrows the fake response with Array.isArray before use; entries are schemaless fake data
-function findModel(models: unknown, id: string): Record<string, unknown> | undefined {
-    if (!Array.isArray(models)) {
-        return undefined;
-    }
-
-    const entries: unknown[] = models;
-
-    for (const entry of entries) {
-        if (isRecord(entry) && entry.id === id) {
-            return entry;
-        }
-    }
-
-    return undefined;
-}
-
 describe('native provider routing', () => {
-    test('discovers and dispatches openai/gpt-6.1-sol from the embedded catalogue', async () => {
+    test('discovers and dispatches a bundled OpenAI Responses model', async () => {
         const providerID = 'openai';
-        const modelID = 'gpt-6.1-sol';
-        const nativeHost = await startNativeHost(providerID, modelID);
+
+        const selected = selectCatalogueModel(
+            (model) => model.providerID === providerID && model.package === PROVIDER_PACKAGE
+        );
+
+        const modelID = selected.id;
+        const route = { providerID, modelID };
+        const nativeHost = await startNativeHost(route);
         hosts.push({ stop: nativeHost.stop });
 
         const catalogue = await nativeHost.host.client.model.list({
             location: { directory: nativeHost.host.directory }
         });
 
-        const model = catalogue.data.find((entry) => entry.providerID === providerID && entry.modelID === modelID);
+        const model = catalogue.data.find((entry) => entry.providerID === providerID && entry.id === modelID);
 
         expect(model?.enabled).toBe(true);
-        expect(model?.package).toBe('@opencode/ai/providers/openai');
+        expect(model?.package).toBe(PROVIDER_PACKAGE);
 
-        const harness = await startNativeHarness(modelID, DEFAULT_SCRIPT, providerID);
+        const harness = await startNativeHarness(route);
         harnesses.push(harness);
-        const result = await harness.runtime.runStructured(agentCall(modelID, providerID));
+        const result = await harness.runtime.runStructured(agentCall(route));
 
         expect(result.structured).toEqual(FINDINGS);
         expect(harness.provider.requests[0]).toMatchObject({
             path: '/v1/responses',
-            model: modelID,
+            model: selected.modelID,
             authHeaders: { authorization: `Bearer ${API_KEY}` }
         });
     });
@@ -215,14 +207,13 @@ describe('native provider routing', () => {
         hosts.push({ stop: nativeHost.stop });
 
         const list = await nativeHost.host.client.model.list({ location: { directory: nativeHost.host.directory } });
-        // SAFETY: the native host model.list resolves with a { data } catalogue envelope; findModel narrows the entries.
-        const model = findModel((list as { data?: unknown }).data, MODEL_ID);
+        const model = list.data.find((entry) => entry.providerID === PROVIDER_ID && entry.id === MODEL_ID);
 
         /* The catalogue entry, not a SAKRE declaration, owns the model and
            its provider package: that override is what selects the endpoint. */
         expect(model).toBeDefined();
         expect(model?.providerID).toBe(PROVIDER_ID);
-        expect(model?.package).toBe('@opencode/ai/providers/openai');
+        expect(model?.package).toBe(PROVIDER_PACKAGE);
     });
 
     test('dispatches the routed model to the catalogue endpoint with the injected credential', async () => {
@@ -235,7 +226,7 @@ describe('native provider routing', () => {
         expect(harness.provider.requests).toHaveLength(2);
         const [first] = harness.provider.requests;
         expect(first?.path).toBe('/v1/responses');
-        expect(first?.model).toBe(MODEL_ID);
+        expect(first?.model).toBe(CATALOGUE_MODEL.modelID);
         expect(first?.authHeaders.authorization).toBe(`Bearer ${API_KEY}`);
         expect(first?.userText).toContain('Reply with exactly: OK');
     });
@@ -246,7 +237,7 @@ describe('native provider routing', () => {
         const nativeHost = await startNativeHost();
         hosts.push({ stop: nativeHost.stop });
         const models = await nativeHost.host.client.model.list({ location: { directory: nativeHost.host.directory } });
-        const model = models.data.find((entry) => entry.providerID === PROVIDER_ID && entry.modelID === MODEL_ID);
+        const model = models.data.find((entry) => entry.providerID === PROVIDER_ID && entry.id === MODEL_ID);
         expect(model?.variants.length).toBeGreaterThan(0);
         const variant = model?.variants[0]?.id;
 
@@ -260,7 +251,7 @@ describe('native provider routing', () => {
         });
 
         expect(result.structured).toEqual(FINDINGS);
-        expect(harness.provider.requests[0]?.model).toBe(MODEL_ID);
+        expect(harness.provider.requests[0]?.model).toBe(CATALOGUE_MODEL.modelID);
     });
 
     test('reports an unsupported variant without dispatching to the provider', async () => {
@@ -285,7 +276,7 @@ describe('native provider routing', () => {
         configureLogSink(createStreamLogSink(captured.stream));
 
         try {
-            const harness = await startNativeHarness(MODEL_ID, [
+            const harness = await startNativeHarness(DEFAULT_MODEL, [
                 { type: 'error', status: 401, body: { error: { message: `invalid key: ${API_KEY}` } } }
             ]);
 
@@ -316,26 +307,27 @@ describe('native provider routing', () => {
     });
 
     test('preserves the pre-provider failure detail for an unknown native model', async () => {
-        const harness = await startNativeHarness('muse-spark-not-in-the-catalogue');
+        const route = { providerID: PROVIDER_ID, modelID: 'test-model-not-in-the-catalogue' };
+        const harness = await startNativeHarness(route);
         harnesses.push(harness);
 
-        const error = await rejectionOf(harness.runtime.runStructured(agentCall('muse-spark-not-in-the-catalogue')));
+        const error = await rejectionOf(harness.runtime.runStructured(agentCall(route)));
 
-        expect(error.message).toBe(`Model unavailable: ${PROVIDER_ID}/muse-spark-not-in-the-catalogue`);
+        expect(error.message).toBe(`Model unavailable: ${PROVIDER_ID}/${route.modelID}`);
         expect(harness.provider.requests).toHaveLength(0);
     });
 
     test('attributes concurrent pre-provider failures to their own session and model', async () => {
         const harness = await startNativeHarness();
         harnesses.push(harness);
-        const firstModel = 'muse-spark-not-in-the-catalogue-a';
-        const secondModel = 'muse-spark-not-in-the-catalogue-b';
+        const firstModel = 'test-model-not-in-the-catalogue-a';
+        const secondModel = 'test-model-not-in-the-catalogue-b';
 
         /* One runtime, two sessions that fail before provider dispatch: each
            rejection must carry its own session's model, and no provider request
            may be made for either. */
-        const firstCall = harness.runtime.runStructured(agentCall(firstModel));
-        const secondCall = harness.runtime.runStructured(agentCall(secondModel));
+        const firstCall = harness.runtime.runStructured(agentCall({ providerID: PROVIDER_ID, modelID: firstModel }));
+        const secondCall = harness.runtime.runStructured(agentCall({ providerID: PROVIDER_ID, modelID: secondModel }));
         const [first, second] = await Promise.all([rejectionOf(firstCall), rejectionOf(secondCall)]);
 
         expect(first.message).toContain(`${PROVIDER_ID}/${firstModel}`);

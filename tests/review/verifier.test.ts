@@ -8,13 +8,14 @@ import { embeddedPrompts } from '../../src/review/embedded-prompts';
 import type { DeadlineHandle } from '../../src/review/pipeline-steps';
 import { isEligibleForVerification, verifyFindings } from '../../src/review/verifier';
 import { type FakeAnthropicProvider, startFakeAnthropic } from '../helpers/fake-anthropic';
+import { ANTHROPIC_TEST_MODEL } from '../helpers/catalogue-models';
 
 /* Provider-payload proof for the verifier: the production `verifyFindings`
    call sends the canonical hunk of the finding's `location.file` through the
    real embedded engine. A shape mismatch is not observable at this level. */
 setDefaultTimeout(60_000);
 
-const MODEL = 'claude-opus-5';
+const MODEL = ANTHROPIC_TEST_MODEL;
 
 const FINDING_ID = 'correctness:src/a.ts:2:abc';
 

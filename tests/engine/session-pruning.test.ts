@@ -6,10 +6,11 @@ import type { AiStructuredCall } from '../../src/ai/runtime';
 import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { createEmbeddedEngineRuntime, type EmbeddedEngineRuntime } from '../../src/engine/runtime';
 import { startFakeAnthropic } from '../helpers/fake-anthropic';
+import { ANTHROPIC_TEST_MODEL } from '../helpers/catalogue-models';
 
 setDefaultTimeout(120_000);
 
-const MODEL = 'claude-opus-5';
+const MODEL = ANTHROPIC_TEST_MODEL;
 
 const FINDINGS = { summary: 'One review summary.', findings: [], usedContext7: false, context7Topics: [] };
 

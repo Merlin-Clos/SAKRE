@@ -3,15 +3,16 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import nativeAssets from '../../native-assets.json' with { type: 'json' };
 import { buildSccArguments, measureScc } from '../../src/intelligence/measure-scc';
 import { resolvePinnedBinary } from '../helpers/native-binary';
 
 /* Official-output parity: the production invocation and one `--format-multi`
    invocation run over the same fixture, and the derived ULOC/Lines/dryness must
-   match the official numbers. The test needs an SCC 4.1.0 binary; CI provides
+   match the official numbers. The test needs the pinned SCC binary; CI provides
    SAKRE_SCC_BINARY or the pinned cache entry. */
 
-const SCC_VERSION = '4.1.0';
+const SCC_VERSION = nativeAssets.tools.scc.version;
 
 const FILES = ['README.md', 'src/a.ts', 'src/b.ts'];
 

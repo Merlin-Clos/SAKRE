@@ -6,8 +6,9 @@ import path from 'node:path';
 import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { createEmbeddedEngineRuntime, type EmbeddedEngineRuntime } from '../../src/engine/runtime';
 import { type FakeAnthropicProvider, type FakeAnthropicReply, startFakeAnthropic } from './fake-anthropic';
+import { ANTHROPIC_TEST_MODEL } from './catalogue-models';
 
-export const ENGINE_TEST_MODEL = 'claude-opus-5';
+export const ENGINE_TEST_MODEL = ANTHROPIC_TEST_MODEL;
 
 export interface EngineHarness {
     runtime: EmbeddedEngineRuntime;

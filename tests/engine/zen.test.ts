@@ -5,8 +5,24 @@ import path from 'node:path';
 import { createEngineHost, type EngineHost } from '../../src/engine/host';
 import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { rejectionOf } from '../helpers/rejection';
+import { ANTHROPIC_TEST_MODEL, catalogueModels, selectCatalogueModel } from '../helpers/catalogue-models';
 
 setDefaultTimeout(120_000);
+
+function isZenFree(model: (typeof catalogueModels)[number]): boolean {
+    return (
+        model.providerID === 'opencode' &&
+        model.enabled &&
+        model.cost.length > 0 &&
+        model.cost.every((tier) => tier.input === 0 && tier.output === 0)
+    );
+}
+
+const FREE_MODELS = catalogueModels.filter((model) => isZenFree(model));
+
+const FREE_MODEL = selectCatalogueModel(isZenFree).id;
+
+const GO_MODEL = selectCatalogueModel((model) => model.providerID === 'opencode-go').id;
 
 const roots: string[] = [];
 
@@ -43,29 +59,29 @@ async function host(providerID: string, modelIds: string[], externalOAuth = fals
     return result;
 }
 
-test('isolated embedded catalogue permits the two Zen Free routes without credentials', async () => {
-    for (const modelID of ['mimo-v2.6-flash-free', 'muse-spark-1.3-contributor-free']) {
-        const instance = await host('opencode', [modelID]);
+test('isolated embedded catalogue permits its enabled Zen Free routes without credentials', async () => {
+    expect(FREE_MODELS.length).toBeGreaterThan(0);
+
+    for (const model of FREE_MODELS) {
+        const instance = await host('opencode', [model.id]);
         const location = { directory: instance.directory };
         const integration = await instance.client.integration.get({ integrationID: 'opencode', location });
         const providers = await instance.client.provider.list({ location });
         const models = await instance.client.model.list({ location });
         expect(integration.data.connections).toEqual([]);
         expect(providers.data.find((provider) => provider.id === 'opencode')?.activation).toBe('enabled');
-        expect(models.data.find((model) => model.providerID === 'opencode' && model.modelID === modelID)?.enabled).toBe(
-            true
-        );
-        const selected = models.data.find((model) => model.providerID === 'opencode' && model.modelID === modelID);
+        const selected = models.data.find((entry) => entry.providerID === 'opencode' && entry.id === model.id);
+        expect(selected?.enabled).toBe(true);
         expect(selected?.cost.length).toBeGreaterThan(0);
         expect(selected?.cost.every((tier) => tier.input === 0 && tier.output === 0)).toBe(true);
     }
 });
 
 test('never borrows an OpenCode Go key for Zen, nor treats Go as keyless', async () => {
-    const error = await rejectionOf(host('opencode-go', ['muse-spark-1.3-contributor']));
+    const error = await rejectionOf(host('opencode-go', [GO_MODEL]));
     expect(error.message).toContain('No usable credential for provider "opencode-go"');
     expect(error.message).toContain('SAKRE_PROVIDER_API_KEY');
-    const zen = await host('opencode', ['mimo-v2.6-flash-free']);
+    const zen = await host('opencode', [FREE_MODEL]);
 
     const integration = await zen.client.integration.get({
         integrationID: 'opencode',
@@ -81,12 +97,12 @@ test('denies keyless models that the embedded catalogue does not enable', async 
 });
 
 test('a provider enabled without a public catalogue key still requires a credential', async () => {
-    const error = await rejectionOf(host('anthropic', ['claude-sonnet-4-5']));
+    const error = await rejectionOf(host('anthropic', [ANTHROPIC_TEST_MODEL]));
     expect(error.message).toContain('No usable credential for provider "anthropic"');
 });
 
 test('explains why an external OAuth entry cannot be activated in a fresh review database', async () => {
-    const error = await rejectionOf(host('opencode-go', ['muse-spark-1.3-contributor'], true));
+    const error = await rejectionOf(host('opencode-go', [GO_MODEL], true));
     expect(error.message).toContain('OAuth credential');
     expect(error.message).toContain('separate store');
     expect(error.message).toContain('deferred');

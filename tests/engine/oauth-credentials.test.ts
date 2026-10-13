@@ -126,6 +126,46 @@ describe('persistent OAuth credentials', () => {
         expect(secrets).toContain('true');
     });
 
+    test('collects key configuration strings, arrays and stringified primitives for redaction', () => {
+        const secrets = collectCredentialSecrets(
+            Credential.Key.make({
+                type: 'key',
+                key: 'api-key-value',
+                configuration: {
+                    token: 'configuration-secret',
+                    accounts: ['configuration-account-a', 'configuration-account-b'],
+                    port: 8443,
+                    enabled: false
+                }
+            })
+        );
+
+        expect(secrets).toEqual([
+            'api-key-value',
+            'configuration-secret',
+            'configuration-account-a',
+            'configuration-account-b',
+            '8443',
+            'false'
+        ]);
+    });
+
+    test('collects external credential metadata without inventing OAuth token values', () => {
+        const methodID = Schema.decodeUnknownSync(Integration.MethodID)('external-test');
+
+        const secrets = collectCredentialSecrets(
+            Credential.External.make({
+                type: 'external',
+                methodID,
+                metadata: { token: 'external-secret', nested: { account: 'private-account' } }
+            })
+        );
+
+        expect(secrets).toEqual(['external-secret', 'private-account']);
+        expect(collectCredentialSecrets(Credential.External.make({ type: 'external', methodID }))).toEqual([]);
+        expect(collectCredentialSecrets(oauth('access-secret'))).toEqual(['access-secret', 'refresh-secret']);
+    });
+
     test('serializes simultaneous writes to one credential without a partial value', async () => {
         const created = await createCredential('openai', 'shared', oauth('access-initial'), false);
         const options = layerOptions('openai', created.id);

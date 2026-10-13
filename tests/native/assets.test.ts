@@ -146,14 +146,14 @@ describe('native asset manifest', () => {
         }
     });
 
-    test('pins the CCCC 1.6.0 unified binary for every supported target', () => {
+    test('pins the CCCC 1.8.0 unified binary for every supported target', () => {
         const cccc = pinnedNativeAssetManifest.tools.get('cccc');
         // eslint-disable-next-line anti-slop/no-known-value-widening -- pin-manifest assertion input; Partial keeps unspecified targets open
         const windowsBinaryPaths: Partial<Record<string, string>> = { 'windows-x64': 'cccc.exe' };
-        expect(cccc?.version).toBe('1.6.0');
+        expect(cccc?.version).toBe('1.8.0');
 
         for (const asset of cccc?.assets.values() ?? []) {
-            expect(asset.url).toContain('https://github.com/moznion/cccc/releases/download/v1.6.0/');
+            expect(asset.url).toContain('https://github.com/moznion/cccc/releases/download/v1.8.0/');
             expect(asset.binaryPath).toBe(windowsBinaryPaths[asset.target] ?? 'cccc');
         }
     });

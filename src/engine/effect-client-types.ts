@@ -29,13 +29,18 @@ export interface EngineFormField {
 
 export interface EngineIntegrationMethod {
     readonly id?: string;
-    readonly type: 'oauth' | 'key' | 'env' | 'command';
+    readonly type: 'oauth' | 'key' | 'env' | 'command' | 'external';
     readonly label?: string;
     readonly form?: readonly EngineFormField[];
 }
 
 export type EngineIntegrationConnection =
-    | { readonly type: 'credential'; readonly id: string; readonly label: string; readonly method: 'key' | 'oauth' }
+    | {
+          readonly type: 'credential';
+          readonly id: string;
+          readonly label: string;
+          readonly method: 'key' | 'oauth' | 'external';
+      }
     | { readonly type: 'env'; readonly name: string };
 
 export interface EngineIntegrationInfo {

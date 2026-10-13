@@ -18,6 +18,7 @@ import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { PRODUCT_NAME, PROVIDER_API_KEY_ENV } from '../../src/identity';
 import type { NativeRuntime } from '../../src/native/runtime';
 import { startFakeProvider } from '../helpers/fake-artifact-provider';
+import { ANTHROPIC_TEST_MODEL } from '../helpers/catalogue-models';
 
 interface CliRepository {
     rootDir: string;
@@ -915,7 +916,7 @@ describe('local CLI review cycle', () => {
                     '--provider',
                     'anthropic',
                     '--model',
-                    'claude-opus-5'
+                    ANTHROPIC_TEST_MODEL
                 ],
                 {
                     cwd: repository.rootDir,

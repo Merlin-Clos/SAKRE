@@ -2,57 +2,57 @@
     "schemaVersion": 1,
     "tools": {
         "rg": {
-            "version": "15.1.0",
+            "version": "15.2.0",
             "targets": [
                 {
                     "target": "linux-x64",
-                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-x86_64-unknown-linux-musl.tar.gz",
-                    "archiveSha256": "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599",
-                    "archiveSize": 2263077,
+                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
+                    "archiveSha256": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c",
+                    "archiveSize": 2265718,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "rg",
-                    "binarySha256": "ebeaf56f8a25e102e9419933423738b3a2a613a444fd749d695e15eba53f71f2",
-                    "binarySize": 5445512
+                    "binarySha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+                    "binarySize": 5408904
                 },
                 {
                     "target": "linux-arm64",
-                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-aarch64-unknown-linux-gnu.tar.gz",
-                    "archiveSha256": "2b661c6ef508e902f388e9098d9c4c5aca72c87b55922d94abdba830b4dc885e",
-                    "archiveSize": 1869959,
+                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-unknown-linux-gnu.tar.gz",
+                    "archiveSha256": "a740b91c82eaf9914cfedd353572f2791cbe0162c84101ee0951058f4dcbc90d",
+                    "archiveSize": 1854661,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "rg",
-                    "binarySha256": "968cabe8efed72fd8fd482cb76b6084fcb695fc5293af7fb62296b02f487fb69",
-                    "binarySize": 4543848
+                    "binarySha256": "e36d0eb52e70696bdf1781392722e05a21bb91d3b7b762ef5ec20e5df2ec687b",
+                    "binarySize": 4506992
                 },
                 {
                     "target": "darwin-x64",
-                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-x86_64-apple-darwin.tar.gz",
-                    "archiveSha256": "64811cb24e77cac3057d6c40b63ac9becf9082eedd54ca411b475b755d334882",
-                    "archiveSize": 1894127,
+                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-apple-darwin.tar.gz",
+                    "archiveSha256": "af7825fcc69a2afc7a7aea55fc9af90e26421d8f20fe59df32e233c0b8a231c1",
+                    "archiveSize": 1878284,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "rg",
-                    "binarySha256": "3bafa7e6ee51ba3ac4ed065883484a309be09b26ea6dad561ae4049bfe049c50",
-                    "binarySize": 4442900
+                    "binarySha256": "0c9a0066db0d26b640777db88045b0ccdd58509a746700e43e1c4ff8707a5ed0",
+                    "binarySize": 4387000
                 },
                 {
                     "target": "darwin-arm64",
-                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-aarch64-apple-darwin.tar.gz",
-                    "archiveSha256": "378e973289176ca0c6054054ee7f631a065874a352bf43f0fa60ef079b6ba715",
-                    "archiveSize": 1777930,
+                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-aarch64-apple-darwin.tar.gz",
+                    "archiveSha256": "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4",
+                    "archiveSize": 1764284,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "rg",
-                    "binarySha256": "4fdf1d8365af224bc70e3c1490d8461d859c37cc70e739a11e987af0215f3e94",
-                    "binarySize": 4048816
+                    "binarySha256": "a326a1fb48074202e9ad41e4cd1e389eeea372c8c6f7d7e80da81176d5d9430e",
+                    "binarySize": 4014576
                 },
                 {
                     "target": "windows-x64",
-                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-x86_64-pc-windows-msvc.zip",
-                    "archiveSha256": "124510b94b6baa3380d051fdf4650eaa80a302c876d611e9dba0b2e18d87493a",
-                    "archiveSize": 1810687,
+                    "url": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-pc-windows-msvc.zip",
+                    "archiveSha256": "71b2fef860abe467217a538ff31de02f5258807c0129f771846f87bd029aafc5",
+                    "archiveSize": 1789611,
                     "archiveFormat": "zip",
                     "binaryPath": "rg.exe",
-                    "binarySha256": "decdd4992f3f1b9a5ef9898f1b40ab16886d579d6516b4efd3d5eaa19364e408",
-                    "binarySize": 4266496
+                    "binarySha256": "14231169855ec5205cf5a1b6f1db358ff4aed4247c86b69ce8aae647c77f6680",
+                    "binarySize": 4218880
                 }
             ]
         },
@@ -112,57 +112,57 @@
             ]
         },
         "cccc": {
-            "version": "1.6.0",
+            "version": "1.8.0",
             "targets": [
                 {
                     "target": "linux-x64",
-                    "url": "https://github.com/moznion/cccc/releases/download/v1.6.0/cccc-v1.6.0-x86_64-unknown-linux-musl.tar.gz",
-                    "archiveSha256": "8a4492a877d566edb75aa8b8501f28a21fdb43789d125e6ac99dfc67a00a919b",
-                    "archiveSize": 3345819,
+                    "url": "https://github.com/moznion/cccc/releases/download/v1.8.0/cccc-v1.8.0-x86_64-unknown-linux-musl.tar.gz",
+                    "archiveSha256": "0350111e3b649c327e62c99da0a35c77f65884f5e4279a968f4371f73a6a5480",
+                    "archiveSize": 4622658,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "cccc",
-                    "binarySha256": "f788b7c32e7c86bd892a4b606615918cfafbe9882d2282db97193db7997e4e12",
-                    "binarySize": 22079832
+                    "binarySha256": "d12c2ca9b55e5b54d3cd3a1e9e5c10a6e0fe2884debc49d9ae57c40235690c14",
+                    "binarySize": 38640064
                 },
                 {
                     "target": "linux-arm64",
-                    "url": "https://github.com/moznion/cccc/releases/download/v1.6.0/cccc-v1.6.0-aarch64-unknown-linux-musl.tar.gz",
-                    "archiveSha256": "cfaaa99aa9c731005984702d9ed5f7efda8f169b39030be9c01cdd557b260799",
-                    "archiveSize": 3241871,
+                    "url": "https://github.com/moznion/cccc/releases/download/v1.8.0/cccc-v1.8.0-aarch64-unknown-linux-musl.tar.gz",
+                    "archiveSha256": "ba179065369af907b1f6dd4bd7c50c4f99567159882c2f6a004e7b32234c7469",
+                    "archiveSize": 4504705,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "cccc",
-                    "binarySha256": "2d1cdb88656433f309553a68a0ad0c0620189588a55bc224cff71cd950081c8d",
-                    "binarySize": 21798040
+                    "binarySha256": "ee51fae6d650760566001918e7d0e50e1b9d16ce139d507f5873e6b252ae93f7",
+                    "binarySize": 38469544
                 },
                 {
                     "target": "darwin-x64",
-                    "url": "https://github.com/moznion/cccc/releases/download/v1.6.0/cccc-v1.6.0-x86_64-apple-darwin.tar.gz",
-                    "archiveSha256": "64d38f2d5e5380afaa93896a254a2aede66e8e30e00d3e814a957b30d50307d3",
-                    "archiveSize": 3237594,
+                    "url": "https://github.com/moznion/cccc/releases/download/v1.8.0/cccc-v1.8.0-x86_64-apple-darwin.tar.gz",
+                    "archiveSha256": "3b36ec66a6822f36dbcfd3e353fb1804e98e8160f1e12acb5331b692101b4cf2",
+                    "archiveSize": 4514336,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "cccc",
-                    "binarySha256": "23dbc48428a97428e5e71b214ed4ccdea05484de6178a86fbbbd53e373c012fa",
-                    "binarySize": 21794104
+                    "binarySha256": "c6b98b11bfca22bbde634af2aaaf686a97826ad343e90873e68ff50e32c86af2",
+                    "binarySize": 38330544
                 },
                 {
                     "target": "darwin-arm64",
-                    "url": "https://github.com/moznion/cccc/releases/download/v1.6.0/cccc-v1.6.0-aarch64-apple-darwin.tar.gz",
-                    "archiveSha256": "7caec629e4b7f2f8453f7b025af1b4613dd9bfc3bfb089cbbd2e736d14d6c80f",
-                    "archiveSize": 3244279,
+                    "url": "https://github.com/moznion/cccc/releases/download/v1.8.0/cccc-v1.8.0-aarch64-apple-darwin.tar.gz",
+                    "archiveSha256": "a238b8f121291f81df68359c111a9ba49cf48106fbedda63f4a48f1adc092408",
+                    "archiveSize": 4620536,
                     "archiveFormat": "tar.gz",
                     "binaryPath": "cccc",
-                    "binarySha256": "a20c8b3bfd4933e301231c83d2cf0b98cf7566ac253a563ed1b3ede5ca2c6f81",
-                    "binarySize": 21738304
+                    "binarySha256": "ec184795f96521da4a90df48e0129aafef7006eec65672323444db53b2296176",
+                    "binarySize": 38482288
                 },
                 {
                     "target": "windows-x64",
-                    "url": "https://github.com/moznion/cccc/releases/download/v1.6.0/cccc-v1.6.0-x86_64-pc-windows-msvc.zip",
-                    "archiveSha256": "ffde9896051c2172b37e364dd80127700744df1a4de4a83de506d2e2f1ef6889",
-                    "archiveSize": 3055952,
+                    "url": "https://github.com/moznion/cccc/releases/download/v1.8.0/cccc-v1.8.0-x86_64-pc-windows-msvc.zip",
+                    "archiveSha256": "9be6f4c407f4766b2aa6d886d592c33964268005572a0cb9f13c8359a0a344da",
+                    "archiveSize": 4288979,
                     "archiveFormat": "zip",
                     "binaryPath": "cccc.exe",
-                    "binarySha256": "012ed63261c87644664a2dbbf9a68925345fc3b47e5659be61ab5515b1fb2ac8",
-                    "binarySize": 21861888
+                    "binarySha256": "4b2b85e12ae401608019a42f7e6dc72580dd832463f47ac2fb17634e08017ee2",
+                    "binarySize": 38418944
                 }
             ]
         }

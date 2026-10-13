@@ -2,6 +2,47 @@ import { expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
+test('direct develop and main pushes retain the same CI as pull requests', async () => {
+    const pushSchema = z.object({ branches: z.array(z.string()) });
+    const triggerSchema = z.object({ push: pushSchema, pull_request: z.null() });
+    const jobSchema = z.object({ if: z.string().optional() });
+
+    const workflowSchema = z.object({
+        on: triggerSchema,
+        jobs: z.object({
+            'quality-check': jobSchema,
+            'build-artifacts': jobSchema,
+            'test-linux-compatibility': jobSchema
+        })
+    });
+
+    const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
+    const workflow = workflowSchema.parse(data);
+
+    expect(new Set(workflow.on.push.branches)).toEqual(new Set(['main', 'develop']));
+
+    for (const job of Object.values(workflow.jobs)) {
+        expect(job.if).toBeUndefined();
+    }
+});
+
+test.each([
+    { file: '.github/workflows/ci.yml', job: 'build-artifacts' },
+    { file: '.github/workflows/release.yml', job: 'build' }
+])('every artifact upload in $file uses the selected version', async ({ file, job }) => {
+    const stepSchema = z.object({ uses: z.string().optional() });
+    const jobSchema = z.object({ steps: z.array(stepSchema) });
+    const workflowSchema = z.object({ jobs: z.record(z.string(), jobSchema) });
+    const data: unknown = parseYaml(await Bun.file(file).text());
+    const workflow = workflowSchema.parse(data);
+
+    const uploads = workflow.jobs[job]?.steps
+        .map((step) => step.uses)
+        .filter((uses) => uses?.startsWith('actions/upload-artifact@') === true);
+
+    expect(uploads).toEqual(['actions/upload-artifact@v7.0.2', 'actions/upload-artifact@v7.0.2']);
+});
+
 test('artifact jobs gate PR CI while release keeps bounded per-target publication', async () => {
     const stringList = z.array(z.string());
     const stringOrStringList = z.union([z.string(), stringList]);
@@ -44,7 +85,7 @@ test('artifact jobs gate PR CI while release keeps bounded per-target publicatio
     expect(ci.jobs['test-linux-compatibility']?.['continue-on-error']).toBe(
         ['$', '{{ matrix.experimental }}'].join('')
     );
-    expect(ciText).toContain('actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131');
+    expect(ciText).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(ciText).toContain('sha256sum --check');
     expect(ciText).toContain('chmod +x "$SAKRE_ENGINE_BINARY"');
     expect(ciText).toContain('"$SAKRE_ENGINE_BINARY" --version');
@@ -76,7 +117,7 @@ test('artifact jobs gate PR CI while release keeps bounded per-target publicatio
     expect(release.jobs['linux-compatibility']?.['continue-on-error']).toBe(
         ['$', '{{ matrix.experimental }}'].join('')
     );
-    expect(releaseText).toContain('actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131');
+    expect(releaseText).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseText).toContain('sha256sum --check');
     expect(releaseText).toContain('needs: [validate, build, linux-compatibility]');
     expect(releaseText).toContain('test -f dist-release/sakre-linux-arm64.gz');

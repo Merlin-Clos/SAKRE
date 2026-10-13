@@ -180,7 +180,13 @@ export function collectCredentialSecrets(value: Credential.Value): string[] {
         return [value.key, ...collectSecretStrings(value.metadata), ...collectSecretStrings(value.configuration)];
     }
 
-    return [value.access, value.refresh, ...collectSecretStrings(value.metadata)];
+    if (value.type === 'oauth') {
+        return [value.access, value.refresh, ...collectSecretStrings(value.metadata)];
+    }
+
+    const external = value satisfies Credential.External;
+
+    return collectSecretStrings(external.metadata);
 }
 
 function requireOAuthValue(value: Credential.Value): asserts value is Credential.OAuth {

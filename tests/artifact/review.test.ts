@@ -5,10 +5,13 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { startFakeProvider } from '../helpers/fake-artifact-provider';
+import { DEFAULT_AGENT_PLAN } from '../../src/config/schema';
 import { nativeAssetFor } from '../../src/native/assets';
 import { nativeTargetFor, releaseArtifactName } from '../../src/native/platform';
 import { pinnedNativeAssetManifest } from '../../src/native/runtime';
 import { createRepository, fileExists, git, rev, systemBinary } from '../helpers/artifact-repository';
+import { startFakeResponses } from '../helpers/fake-responses';
+import { ANTHROPIC_TEST_MODEL, selectCatalogueModel } from '../helpers/catalogue-models';
 
 setDefaultTimeout(180_000);
 
@@ -23,6 +26,68 @@ if (target !== undefined) {
 const artifactAvailable = artifactPath !== '' && (await fileExists(artifactPath));
 
 describe('compiled engine artifact', () => {
+    test.skipIf(!artifactAvailable)(
+        'routes a bundled OpenAI Responses model to an offline provider and redacts its credential rejection',
+        async () => {
+            const model = selectCatalogueModel(
+                (entry) => entry.providerID === 'openai' && entry.package === '@opencode/ai/providers/openai'
+            );
+
+            const root = await mkdtemp(path.join(tmpdir(), 'sakre-artifact-openai-'));
+            const apiKey = 'fake-standalone-openai-key';
+
+            const provider = startFakeResponses(
+                DEFAULT_AGENT_PLAN.hard.map(() => ({
+                    type: 'error',
+                    status: 401,
+                    body: { error: { message: `invalid key: ${apiKey}` } }
+                }))
+            );
+
+            try {
+                const repository = await createRepository(root);
+                const environment = await createArtifactEnvironment(root, provider.baseURL);
+                environment.SAKRE_PROVIDER_API_KEY = apiKey;
+
+                const result = await runArtifact(
+                    [
+                        'local',
+                        '--base',
+                        repository.baseSha,
+                        '--head',
+                        repository.headSha,
+                        '--repo',
+                        repository.rootDir,
+                        '--provider',
+                        'openai',
+                        '--model',
+                        model.id
+                    ],
+                    environment,
+                    { cwd: repository.rootDir }
+                );
+
+                expect(result.exitCode).toBe(1);
+                expect(provider.requests.length).toBeGreaterThan(0);
+
+                for (const request of provider.requests) {
+                    expect(request).toMatchObject({
+                        path: '/v1/responses',
+                        model: model.modelID,
+                        authHeaders: { authorization: `Bearer ${apiKey}` }
+                    });
+                }
+
+                expect(`${result.stdout}${result.stderr}`).toContain('[redacted]');
+                expect(`${result.stdout}${result.stderr}`).not.toContain(apiKey);
+                expect(`${result.stdout}${result.stderr}`).not.toContain('Model unavailable');
+            } finally {
+                await provider.stop();
+                await rm(root, { recursive: true, force: true });
+            }
+        }
+    );
+
     test.skipIf(!artifactAvailable)(
         'completes a review through the embedded engine with an isolated environment',
         async () => {
@@ -65,7 +130,7 @@ describe('compiled engine artifact', () => {
                         '--provider',
                         'anthropic',
                         '--model',
-                        'claude-sonnet-4-5'
+                        ANTHROPIC_TEST_MODEL
                     ],
                     artifactEnvironment({ home, cache, bin, isolatedPath, providerBaseURL: provider.baseURL }),
                     { cwd: repository.rootDir }
@@ -165,7 +230,7 @@ describe('compiled engine artifact', () => {
                         '--provider',
                         'anthropic',
                         '--model',
-                        'claude-sonnet-4-5',
+                        ANTHROPIC_TEST_MODEL,
                         '--instructions',
                         guidancePath
                     ],

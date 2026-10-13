@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { nativeTargetFor, releaseArtifactName } from '../../src/native/platform';
 import { createRepository, fileExists, optionalSystemBinary, systemBinary } from '../helpers/artifact-repository';
+import { ANTHROPIC_TEST_MODEL } from '../helpers/catalogue-models';
 
 /* Linux-only offline proof: the compiled artifact runs a complete review with
    the fake provider inside `unshare -rn`, so no external network is reachable.
@@ -140,7 +141,7 @@ describe('compiled engine artifact offline proof', () => {
                         '--provider',
                         'anthropic',
                         '--model',
-                        'claude-sonnet-4-5'
+                        ANTHROPIC_TEST_MODEL
                     ],
                     env: {
                         HOME: home,

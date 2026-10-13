@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import nativeAssets from '../../native-assets.json' with { type: 'json' };
 import { classifyFile, defaultClassificationRules } from '../../src/analysis/classification';
 import { CancelledError } from '../../src/analysis/cancellation';
 import { SnapshotError } from '../../src/analysis/snapshot';
@@ -17,9 +18,13 @@ import { scriptedTool } from '../helpers/scripted-tool';
    needs the pinned SCC/CCCC binaries; the failure-semantics and dirty-tree cases
    script the tools so they stay deterministic everywhere. */
 
-const sccBinary = await resolvePinnedBinary('scc', '4.1.0', 'SAKRE_SCC_BINARY');
+const SCC_VERSION = nativeAssets.tools.scc.version;
 
-const ccccBinary = await resolvePinnedBinary('cccc', '1.6.0', 'SAKRE_CCCC_BINARY');
+const CCCC_VERSION = nativeAssets.tools.cccc.version;
+
+const sccBinary = await resolvePinnedBinary('scc', SCC_VERSION, 'SAKRE_SCC_BINARY');
+
+const ccccBinary = await resolvePinnedBinary('cccc', CCCC_VERSION, 'SAKRE_CCCC_BINARY');
 
 const realTools = sccBinary !== undefined && ccccBinary !== undefined;
 
@@ -169,8 +174,8 @@ describe('deterministic pre-pass', () => {
                     classification: defaultClassificationRules(),
                     sccBinaryPath: sccTool,
                     ccccBinaryPath: ccccTool,
-                    sccVersion: '4.1.0',
-                    ccccVersion: '1.6.0'
+                    sccVersion: SCC_VERSION,
+                    ccccVersion: CCCC_VERSION
                 });
 
                 expect(measured.map.coverage.scc.unmeasurable).toEqual([backslash]);
@@ -209,16 +214,16 @@ describe('deterministic pre-pass', () => {
                 classification: defaultClassificationRules(),
                 sccBinaryPath: sccBinary,
                 ccccBinaryPath: ccccBinary,
-                sccVersion: '4.1.0',
-                ccccVersion: '1.6.0'
+                sccVersion: SCC_VERSION,
+                ccccVersion: CCCC_VERSION
             };
 
             const first = await runIntelligencePrePass(input);
             const second = await runIntelligencePrePass(input);
 
             expect(first.map.tools).toEqual({
-                scc: { version: '4.1.0', status: 'ok' },
-                cccc: { version: '1.6.0', status: 'ok' }
+                scc: { version: SCC_VERSION, status: 'ok' },
+                cccc: { version: CCCC_VERSION, status: 'ok' }
             });
             expect(first.map.revisions.baseSha).toBe(fixture.baseSha);
             expect(first.map.revisions.headSha).toBe(fixture.headSha);
@@ -267,8 +272,8 @@ describe('deterministic pre-pass', () => {
                 ...base,
                 sccBinaryPath: fakeScc,
                 ccccBinaryPath: failingCccc,
-                sccVersion: '4.1.0',
-                ccccVersion: '1.6.0'
+                sccVersion: SCC_VERSION,
+                ccccVersion: CCCC_VERSION
             });
 
             expect(degraded.map.tools.cccc.status).toBe('unavailable');
@@ -285,8 +290,8 @@ describe('deterministic pre-pass', () => {
                     ...base,
                     sccBinaryPath: failingScc,
                     ccccBinaryPath: failingCccc,
-                    sccVersion: '4.1.0',
-                    ccccVersion: '1.6.0'
+                    sccVersion: SCC_VERSION,
+                    ccccVersion: CCCC_VERSION
                 })
             );
 
@@ -357,8 +362,8 @@ describe('deterministic pre-pass', () => {
                 classification: defaultClassificationRules(),
                 sccBinaryPath: sccTool,
                 ccccBinaryPath: ccccTool,
-                sccVersion: '4.1.0',
-                ccccVersion: '1.6.0'
+                sccVersion: SCC_VERSION,
+                ccccVersion: CCCC_VERSION
             };
 
             const clean = await runIntelligencePrePass(input);
@@ -416,8 +421,8 @@ await new Promise((resolve) => setTimeout(resolve, 5000));
                 classification: defaultClassificationRules(),
                 sccBinaryPath: sccTool,
                 ccccBinaryPath: ccccTool,
-                sccVersion: '4.1.0',
-                ccccVersion: '1.6.0',
+                sccVersion: SCC_VERSION,
+                ccccVersion: CCCC_VERSION,
                 signal: controller.signal
             });
 
@@ -454,8 +459,8 @@ await new Promise((resolve) => setTimeout(resolve, 5000));
                     classification: defaultClassificationRules(),
                     sccBinaryPath: sccTool,
                     ccccBinaryPath: ccccTool,
-                    sccVersion: '4.1.0',
-                    ccccVersion: '1.6.0'
+                    sccVersion: SCC_VERSION,
+                    ccccVersion: CCCC_VERSION
                 })
             );
 
@@ -537,7 +542,7 @@ function realInput(fixture: Fixture, files: VcsChangedFile[]): IntelligencePrePa
         classification: defaultClassificationRules(),
         sccBinaryPath: sccBinary,
         ccccBinaryPath: ccccBinary,
-        sccVersion: '4.1.0',
-        ccccVersion: '1.6.0'
+        sccVersion: SCC_VERSION,
+        ccccVersion: CCCC_VERSION
     };
 }

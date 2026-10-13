@@ -8,6 +8,7 @@ import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { createTrustedWorkspace, type TrustedWorkspace } from '../../src/workspace/trusted';
 import { startFakeAnthropic } from '../helpers/fake-anthropic';
 import { rejectionOf } from '../helpers/rejection';
+import { ANTHROPIC_TEST_MODEL } from '../helpers/catalogue-models';
 
 setDefaultTimeout(60_000);
 
@@ -46,7 +47,7 @@ async function startEngine(checkoutDir: string): Promise<{
     const runtime = await createEmbeddedEngineRuntime({
         providerID: 'anthropic',
         providerFamily: 'anthropic',
-        modelIds: ['claude-opus-5'],
+        modelIds: [ANTHROPIC_TEST_MODEL],
         apiKey: 'sk-ant-hostile',
         baseURL: provider.baseURL,
         checkoutDir,
@@ -62,7 +63,7 @@ async function startEngine(checkoutDir: string): Promise<{
 function agentCall(): Parameters<EmbeddedEngineRuntime['runStructured']>[0] {
     return {
         agentId: 'correctness',
-        model: { providerID: 'anthropic', modelID: 'claude-opus-5' },
+        model: { providerID: 'anthropic', modelID: ANTHROPIC_TEST_MODEL },
         systemPrompt: 'ROLE SYSTEM PROMPT',
         userPrompt: 'Review.',
         retryPrompt: 'Review.'
@@ -85,7 +86,7 @@ describe('hostile workspace isolation', () => {
                 createEmbeddedEngineRuntime({
                     providerID: 'anthropic',
                     providerFamily: 'anthropic',
-                    modelIds: ['claude-opus-5'],
+                    modelIds: [ANTHROPIC_TEST_MODEL],
                     apiKey: 'sk-ant-hostile',
                     baseURL: provider.baseURL,
                     checkoutDir,

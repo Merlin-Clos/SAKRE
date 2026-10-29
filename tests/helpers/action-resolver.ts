@@ -189,6 +189,28 @@ export async function writeExecutable(file: string, content: string): Promise<st
     return file;
 }
 
+/* Deterministic wall clock for resolver instrumentation tests. Each external
+   `date` call advances one millisecond, including calls from Bash subshells,
+   so phase durations are stable and strictly ordered. Only instrumentation
+   cases need this clock; no phase needs a sleep. */
+export async function stubClock(root: string): Promise<string> {
+    const bin = path.join(root, 'bin');
+    await mkdir(bin, { recursive: true });
+    const ticks = path.join(root, 'clock-ms');
+    await writeFile(ticks, '0\n');
+    await writeExecutable(
+        path.join(bin, 'date'),
+        `#!/usr/bin/env bash
+read -r value < '${ticks}'
+value=$((value + 1))
+printf '%s\\n' "$value" > '${ticks}'
+printf '%s\\n' "$value"
+`
+    );
+
+    return bin;
+}
+
 /* PowerShell only executes real executables, so on Windows the resolver fixture
    is a copy of the running Bun binary and the native runner target applies; the
    shell fixture stays on Linux. Both fixtures report their own marker. */

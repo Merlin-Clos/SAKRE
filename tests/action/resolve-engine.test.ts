@@ -11,6 +11,7 @@ import {
     runPwshResolver,
     runResolver,
     sha256,
+    stubClock,
     tempRoot,
     writeActionPin,
     writeExecutable,
@@ -258,25 +259,8 @@ describe('composite Action resolver', () => {
 });
 
 /* Each external date call advances one millisecond, including calls from Bash
-   subshells. Only instrumentation cases need this clock; no phase needs a sleep. */
-async function stubClock(root: string): Promise<string> {
-    const bin = path.join(root, 'bin');
-    await mkdir(bin, { recursive: true });
-    const ticks = path.join(root, 'clock-ms');
-    await writeFile(ticks, '0\n');
-    await writeExecutable(
-        path.join(bin, 'date'),
-        `#!/usr/bin/env bash
-read -r value < '${ticks}'
-value=$((value + 1))
-printf '%s\\n' "$value" > '${ticks}'
-printf '%s\\n' "$value"
-`
-    );
-
-    return bin;
-}
-
+   subshells. Only instrumentation cases need this clock; no phase needs a sleep.
+   Shared with the integration delivery test through the action-resolver helper. */
 const PWSH_AVAILABLE = pwshAvailable();
 
 /* The cache assertions are identical on both platforms; only the fixture and

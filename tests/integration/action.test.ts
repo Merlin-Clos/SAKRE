@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { nativeTargetFor, releaseArtifactName } from '../../src/native/platform';
-import { parseResolverPhases } from '../helpers/action-resolver';
+import { parseResolverPhases, stubClock } from '../helpers/action-resolver';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, '..', '..');
 
@@ -202,6 +202,10 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
     test('executes the injected engine binary and posts the review', async () => {
         const summaryRoot = await mkdtemp(path.join(tmpdir(), 'sakre-action-summary-'));
         const summaryPath = path.join(summaryRoot, 'summary.md');
+        /* Controlled clock shared with the resolver contract tests: phase
+           durations must not depend on the runner wall clock jumping. */
+        const clockRoot = await mkdtemp(path.join(tmpdir(), 'sakre-action-clock-'));
+        const stubBin = await stubClock(clockRoot);
 
         const harness = await startFixture({
             mockMode: true,
@@ -211,6 +215,7 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
                 GITHUB_ACTION_PATH: REPOSITORY_ROOT,
                 GITHUB_STEP_SUMMARY: summaryPath,
                 SAKRE_ENGINE_BINARY: artifactPath,
+                PATH: `${stubBin}${path.delimiter}${process.env.PATH ?? ''}`,
                 RUNNER_ARCH,
                 RUNNER_OS
             }
@@ -242,6 +247,7 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
         } finally {
             await harness.close();
             await rm(summaryRoot, { recursive: true, force: true });
+            await rm(clockRoot, { recursive: true, force: true });
         }
     });
 

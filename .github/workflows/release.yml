@@ -49,10 +49,8 @@ jobs:
             - name: Install exact dependencies
               run: bun install --frozen-lockfile
 
-            # The full suite runs in exactly two places: the PR gate (before any
-            # merge) and here (before any publication). Post-merge push runs
-            # were removed as redundant; the release-built binaries are
-            # additionally tested by the build and compatibility legs below.
+            # The full suite runs in exactly two places: the PR gate and this
+            # tag gate. The release-built binaries are tested below.
             - name: Run release gates
               run: |
                   bun run format:check

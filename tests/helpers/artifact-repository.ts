@@ -28,17 +28,14 @@ export async function createRepository(root: string): Promise<{ rootDir: string;
     return { rootDir, baseSha, headSha };
 }
 
-/* A template is one slow repository build whose directory is copied per test.
-   Every copy carries the same committed content, so the SHAs are stable across
-   copies; each copy stays private to its test (post-creation mutations such as
-   `git remote add` keep working on the copy). */
+/* One slow repository build copied per test: copies stay private to their
+   test while SHAs stay stable across copies. */
 export interface ArtifactRepositoryTemplate {
     dir: string;
     baseSha: string;
     headSha: string;
 }
 
-/* Holder for a template built once in beforeAll and consumed per test. */
 export interface TemplateHolder {
     template?: ArtifactRepositoryTemplate;
 }

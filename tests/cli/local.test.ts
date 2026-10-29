@@ -49,11 +49,8 @@ let homeRoot = '';
 
 const createdRepositories: string[] = [];
 
-/* Fixture templates: each distinct repository shape is built once in beforeAll
-   and copied per test. Copies are private to their test (later commits, output
-   files and credential stores land on the copy), while the committed content
-   — and therefore the base/head SHAs — is identical across copies. Unknown
-   option shapes fall back to the slow builder so behavior never changes. */
+/* Fixture templates are built once and copied privately per test with
+   identical SHAs. Unknown option shapes fall back to the slow builder. */
 interface CliRepositoryTemplate {
     dir: string;
     baseSha: string;
@@ -1964,9 +1961,6 @@ function templateKey(options: CliRepositoryOptions): string {
     return JSON.stringify({ ...options, remote: undefined });
 }
 
-/* The only templated shapes in this file: default, the AGENTS.md overlay pair,
-   the base/head config pair, and the over-budget head content. Anything else
-   keeps the slow builder through the fallback above. */
 async function buildCliRepositoryTemplates(): Promise<void> {
     const agents = { baseAgents: 'base instructions\n', headAgents: 'head instructions\n' };
 

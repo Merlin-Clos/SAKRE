@@ -189,10 +189,8 @@ export async function writeExecutable(file: string, content: string): Promise<st
     return file;
 }
 
-/* Deterministic wall clock for resolver instrumentation tests. Each external
-   `date` call advances one millisecond, including calls from Bash subshells,
-   so phase durations are stable and strictly ordered. Only instrumentation
-   cases need this clock; no phase needs a sleep. */
+/* Deterministic wall clock: each external `date` call advances one
+   millisecond, so phase durations are stable. Instrumentation cases only. */
 export async function stubClock(root: string): Promise<string> {
     const bin = path.join(root, 'bin');
     await mkdir(bin, { recursive: true });

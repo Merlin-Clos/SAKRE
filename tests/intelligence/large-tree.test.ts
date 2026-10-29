@@ -39,9 +39,8 @@ async function createLargeRepository(rootDir: string): Promise<{ baseSha: string
     git(rootDir, ['init', '--initial-branch', 'main']);
     git(rootDir, ['config', 'user.email', 'fixture@sakre.local']);
     git(rootDir, ['config', 'user.name', 'SAKRE Fixture']);
-    /* Setup-only change: the 1800 files live in 18 module directories, so
-       create each directory once up front, then write all files concurrently.
-       File count, content, git history and the overflow assertion are unchanged. */
+    /* Setup-only change: file count, content, git history and the overflow
+       assertion are unchanged. */
 
     const paths = Array.from(
         { length: FILE_COUNT },

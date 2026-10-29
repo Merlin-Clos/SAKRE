@@ -2,10 +2,8 @@ import { expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-/* CI runs on pull requests only. develop and main both require green,
-   up-to-date PRs and forbid direct pushes, so every merge result already went
-   through the suite on its PR; post-merge push runs would retest the same
-   tree. Release tags are gated separately by release.yml. */
+/* CI runs on pull requests only: branch protection already proves every merge,
+   so post-merge push runs would retest the same tree. */
 test('CI runs on pull requests with no post-merge push trigger', async () => {
     const pushSchema = z.object({ branches: z.array(z.string()) });
     const triggerSchema = z.object({ push: pushSchema.optional(), pull_request: z.null() });
@@ -23,9 +21,8 @@ test('CI runs on pull requests with no post-merge push trigger', async () => {
     const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
     const workflow = workflowSchema.parse(data);
 
-    /* The push trigger is declared optional in the schema above so a
-       reintroduced one survives parsing and fails here instead of silently
-       passing contract validation. */
+    /* Push stays optional in the schema so a reintroduced trigger survives
+       parsing and fails below instead of passing silently. */
     expect(workflow.on.push).toBeUndefined();
 
     for (const job of Object.values(workflow.jobs)) {

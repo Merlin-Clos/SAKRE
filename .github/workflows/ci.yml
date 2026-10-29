@@ -1,10 +1,8 @@
 name: SAKRE CI
 
 on:
-    # No push trigger on purpose: develop and main both require green,
-    # up-to-date PRs and forbid direct pushes, so every merge result already
-    # went through this exact suite on its PR. Post-merge runs would retest
-    # the same tree. Release tags are gated separately by release.yml.
+    # No push trigger: branch protection already proves every merge on its PR,
+    # so post-merge runs would retest the same tree.
     pull_request:
 
 permissions:

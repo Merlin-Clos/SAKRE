@@ -40,9 +40,8 @@ describe('model provenance at the provider boundary', () => {
         const harness = await startHarness([]);
         const log = recordModelInvocations(harness.runtime);
 
-        /* The session opens before the unknown model fails without a provider
-           request, unlike the oversized instruction rejection. The model must not
-           appear in "Models used". */
+        /* The session opens before the unknown model fails, with no provider
+           request and no "Models used" entry. */
         await rejectionOf(log.runtime.runStructured(agentCall('SYSTEM MARKER', UNKNOWN_MODEL)));
 
         expect(log.modelsUsed()).toEqual([]);

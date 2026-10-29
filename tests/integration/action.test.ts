@@ -56,10 +56,8 @@ interface GitHubFixture {
     largePatch?: boolean;
 }
 
-/* The workspace repository shape is identical for every harness, so it is
-   built once and copied per test. Copies are private (the engine runs with
-   the copy as cwd); committed content — and therefore both SHAs — is
-   identical across copies. */
+/* The workspace shape is identical for every harness: built once, copied
+   privately per test with identical SHAs. */
 interface WorkspaceTemplate {
     dir: string;
     baseSha: string;

@@ -329,8 +329,7 @@
             "files": ["src/cli/local.ts", "src/cli/local-review.ts"],
             "rules": {
                 // The CLI boundary and review executor orchestrate failures,
-                // credentials, GitHub context, runtime creation and output in
-                // multi-step functions; ternaries select optional context fields.
+                // credentials, context and output in multi-step functions.
                 "eslint/no-ternary": "off",
                 "eslint/max-statements": "off",
                 "eslint/max-lines": "off",

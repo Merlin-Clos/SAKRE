@@ -83,9 +83,8 @@ async function createFixture(): Promise<Fixture> {
     return { rootDir, baseSha, headSha: rev(rootDir) };
 }
 
-/* The standard fixture is built once and copied per test. Copies are private
-   (dirty-tree and cancellation tests mutate their own copy), while the
-   committed content — and therefore both SHAs — is identical across copies. */
+/* The standard fixture is built once and copied privately per test with
+   identical SHAs. */
 interface SharedFixtureHolder {
     fixture?: Fixture;
 }

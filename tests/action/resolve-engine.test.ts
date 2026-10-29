@@ -258,9 +258,6 @@ describe('composite Action resolver', () => {
     });
 });
 
-/* Each external date call advances one millisecond, including calls from Bash
-   subshells. Only instrumentation cases need this clock; no phase needs a sleep.
-   Shared with the integration delivery test through the action-resolver helper. */
 const PWSH_AVAILABLE = pwshAvailable();
 
 /* The cache assertions are identical on both platforms; only the fixture and

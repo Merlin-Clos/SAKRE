@@ -35,6 +35,27 @@ const GITHUB_EXPRESSION_OPEN = `${String.fromCodePoint(36)}{{`;
 const ENGINE_TOKEN_EXPRESSION = `${GITHUB_EXPRESSION_OPEN} secrets.SAKRE_ENGINE_TOKEN }}`;
 
 describe('engine download credential', () => {
+    test('the curl fixture exposes an authorization header passed through argv', async () => {
+        const root = await tempRoot('sakre-engine-argv-proof-');
+        const fixture = await writeExecutable(path.join(root, 'fixture-engine.sh'), '#!/usr/bin/env bash\nexit 0\n');
+        const stubBin = await stubCurl(root, fixture, { authenticated: true });
+        const curlLog = path.join(root, 'curl.log');
+
+        const result = Bun.spawnSync(
+            [
+                'bash',
+                path.join(stubBin, 'curl'),
+                '--header',
+                'Authorization: Bearer test-token',
+                'https://api.github.com/repos/acme/fixture/releases/tags/v1.0.0'
+            ],
+            { env: { ...process.env, RESOLVER_CURL_LOG: curlLog } }
+        );
+
+        expect(result.exitCode).toBe(0);
+        expect(await readFile(curlLog, 'utf8')).toContain('--header\nAuthorization: Bearer test-token\n');
+    });
+
     test('uses the SAKRE_ENGINE_TOKEN environment fallback when the input is unset', async () => {
         const root = await tempRoot('sakre-engine-env-token-');
 

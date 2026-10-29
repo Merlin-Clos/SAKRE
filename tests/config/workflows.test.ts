@@ -2,9 +2,11 @@ import { expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-test('direct develop and main pushes retain the same CI as pull requests', async () => {
+/* CI runs on pull requests only: branch protection already proves every merge,
+   so post-merge push runs would retest the same tree. */
+test('CI runs on pull requests with no post-merge push trigger', async () => {
     const pushSchema = z.object({ branches: z.array(z.string()) });
-    const triggerSchema = z.object({ push: pushSchema, pull_request: z.null() });
+    const triggerSchema = z.object({ push: pushSchema.optional(), pull_request: z.null() });
     const jobSchema = z.object({ if: z.string().optional() });
 
     const workflowSchema = z.object({
@@ -19,7 +21,9 @@ test('direct develop and main pushes retain the same CI as pull requests', async
     const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
     const workflow = workflowSchema.parse(data);
 
-    expect(new Set(workflow.on.push.branches)).toEqual(new Set(['main', 'develop']));
+    /* Push stays optional in the schema so a reintroduced trigger survives
+       parsing and fails below instead of passing silently. */
+    expect(workflow.on.push).toBeUndefined();
 
     for (const job of Object.values(workflow.jobs)) {
         expect(job.if).toBeUndefined();
@@ -120,6 +124,9 @@ test('artifact jobs gate PR CI while release keeps bounded per-target publicatio
     expect(releaseText).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseText).toContain('sha256sum --check');
     expect(releaseText).toContain('needs: [validate, build, linux-compatibility]');
+    /* The full suite runs in exactly two places: the PR gate and the release
+       tag gate. A tag never ships untested source. */
+    expect(releaseText).toContain('bun run test');
     expect(releaseText).toContain('test -f dist-release/sakre-linux-arm64.gz');
 
     const benchmarkText = await Bun.file('.github/workflows/benchmark.yml').text();

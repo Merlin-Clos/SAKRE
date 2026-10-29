@@ -2,7 +2,12 @@ import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from '
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createRepository, git } from '../helpers/artifact-repository';
+import {
+    createRepositoryTemplate,
+    git,
+    instantiateRepository,
+    type TemplateHolder
+} from '../helpers/artifact-repository';
 import {
     reviewEnvironment,
     runStandalone,
@@ -18,8 +23,16 @@ setDefaultTimeout(180_000);
 
 let root = '';
 
+const repositoryTemplateHolder: TemplateHolder = {};
+
 beforeAll(async () => {
     root = await mkdtemp(path.join(tmpdir(), 'sakre-standalone-github-'));
+
+    if (!standaloneArtifactAvailable) {
+        return;
+    }
+
+    repositoryTemplateHolder.template = await createRepositoryTemplate(root);
 });
 
 afterAll(async () => {
@@ -31,7 +44,7 @@ describe('standalone CLI GitHub artifact', () => {
         'auto-detects the pull request through a fixture GitHub API',
         async () => {
             const directory = await mkdtemp(path.join(root, 'github-context-'));
-            const repository = await createRepository(directory);
+            const repository = await instantiateRepository(repositoryTemplateHolder.template, directory);
             const api = startFixtureApi();
 
             try {
@@ -74,7 +87,7 @@ describe('standalone CLI GitHub artifact', () => {
         'resolves --pr publication against the fixture API without a real publication',
         async () => {
             const directory = await mkdtemp(path.join(root, 'github-pr-'));
-            const repository = await createRepository(directory);
+            const repository = await instantiateRepository(repositoryTemplateHolder.template, directory);
             const api = startFixtureApi();
 
             try {
@@ -119,7 +132,7 @@ describe('standalone CLI GitHub artifact', () => {
         'fails github-pr output without a token before any publication',
         async () => {
             const directory = await mkdtemp(path.join(root, 'no-token-'));
-            const repository = await createRepository(directory);
+            const repository = await instantiateRepository(repositoryTemplateHolder.template, directory);
             const api = startFixtureApi();
 
             try {

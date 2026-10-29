@@ -39,21 +39,22 @@ async function createLargeRepository(rootDir: string): Promise<{ baseSha: string
     git(rootDir, ['init', '--initial-branch', 'main']);
     git(rootDir, ['config', 'user.email', 'fixture@sakre.local']);
     git(rootDir, ['config', 'user.name', 'SAKRE Fixture']);
-    const paths: string[] = [];
+    /* Setup-only change: file count, content, git history and the overflow
+       assertion are unchanged. */
 
-    for (let index = 0; index < FILE_COUNT; index += 1) {
-        const directory = path.join(
-            rootDir,
-            'src',
-            'generated',
-            `module-${String(Math.floor(index / 100)).padStart(3, '0')}`
-        );
+    const paths = Array.from(
+        { length: FILE_COUNT },
+        (_unused, index) =>
+            `src/generated/module-${String(Math.floor(index / 100)).padStart(3, '0')}/component-${String(index).padStart(4, '0')}-implementation.ts`
+    );
 
-        const relative = `src/generated/module-${String(Math.floor(index / 100)).padStart(3, '0')}/component-${String(index).padStart(4, '0')}-implementation.ts`;
-        await mkdir(directory, { recursive: true });
-        await writeFile(path.join(rootDir, relative), `export const value${String(index)} = ${String(index)};\n`);
-        paths.push(relative);
-    }
+    const directories = new Set(paths.map((relative) => path.join(rootDir, path.dirname(relative))));
+    await Promise.all([...directories].map((directory) => mkdir(directory, { recursive: true })));
+    await Promise.all(
+        paths.map((relative, index) =>
+            writeFile(path.join(rootDir, relative), `export const value${String(index)} = ${String(index)};\n`)
+        )
+    );
 
     git(rootDir, ['add', '-A']);
     git(rootDir, ['commit', '-m', 'large base']);

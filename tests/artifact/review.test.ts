@@ -89,13 +89,13 @@ describe('compiled engine artifact', () => {
     );
 
     test.skipIf(!artifactAvailable)(
-        'completes a review through the embedded engine with an isolated environment',
+        'reviews in isolation with embedded tools, trusted BASE instructions and ordered provider payloads',
         async () => {
             const root = await mkdtemp(path.join(tmpdir(), 'sakre-artifact-'));
             const provider = startFakeProvider();
 
             try {
-                const repository = await createRepository(root);
+                const repository = await createAgentsRepository(root);
                 const home = path.join(root, 'home');
                 const cache = path.join(root, 'cache');
                 const bin = path.join(root, 'bin');
@@ -117,102 +117,6 @@ describe('compiled engine artifact', () => {
                     JSON.stringify({ instructions: ['AGENTS.md'], plugin: ['./evil.js'] }),
                     'utf8'
                 );
-
-                const result = await runArtifact(
-                    [
-                        'local',
-                        '--base',
-                        repository.baseSha,
-                        '--head',
-                        repository.headSha,
-                        '--repo',
-                        repository.rootDir,
-                        '--provider',
-                        'anthropic',
-                        '--model',
-                        ANTHROPIC_TEST_MODEL
-                    ],
-                    artifactEnvironment({ home, cache, bin, isolatedPath, providerBaseURL: provider.baseURL }),
-                    { cwd: repository.rootDir }
-                );
-
-                expect(result.stderr).not.toContain('::error::');
-                expect(result.exitCode).toBe(0);
-                expect(result.stdout).toContain('Reviewed commit:');
-                expect(result.stdout).toContain('<summary>Review intelligence · deterministic SCC + CCCC</summary>');
-                expect(result.stdout).toContain('### Analysis signals');
-                /* The embedded CCCC binary must actually execute: a degraded
-                   measurement renders the explicit unavailable message instead
-                   of the distribution table. */
-                expect(result.stdout).toContain('<summary>Functions / CCCC</summary>');
-                expect(result.stdout).toContain('| Function count |');
-                expect(result.stdout).not.toContain('CCCC distributions unavailable');
-                expect(provider.requests.filter((request) => request.tools.length > 0).length).toBeGreaterThanOrEqual(
-                    5
-                );
-
-                for (const request of provider.requests) {
-                    expect(request.system).not.toContain('USER LEVEL AGENTS INSTRUCTIONS MUST NOT LEAK');
-                    expect(request.userText).not.toContain('USER LEVEL AGENTS INSTRUCTIONS MUST NOT LEAK');
-                }
-
-                /* The embedded SCC, CCCC and rg assets were materialized from
-               the executable, not resolved from PATH. */
-                const scc = nativeAssetFor(pinnedNativeAssetManifest, 'scc', target ?? 'linux-x64');
-                const cccc = nativeAssetFor(pinnedNativeAssetManifest, 'cccc', target ?? 'linux-x64');
-                const rg = nativeAssetFor(pinnedNativeAssetManifest, 'rg', target ?? 'linux-x64');
-                let cacheRoot = cache;
-
-                if (process.platform === 'darwin') {
-                    cacheRoot = path.join(home, 'Library', 'Caches');
-                }
-
-                const sccPath = path.join(
-                    cacheRoot,
-                    'sakre',
-                    'bin',
-                    'scc',
-                    `${scc.version}-${scc.binarySha256}`,
-                    scc.binaryPath
-                );
-
-                const ccccPath = path.join(
-                    cacheRoot,
-                    'sakre',
-                    'bin',
-                    'cccc',
-                    `${cccc.version}-${cccc.binarySha256}`,
-                    cccc.binaryPath
-                );
-
-                const rgPath = path.join(
-                    cacheRoot,
-                    'sakre',
-                    'bin',
-                    'rg',
-                    `${rg.version}-${rg.binarySha256}`,
-                    rg.binaryPath
-                );
-
-                expect(hashOf(await readFile(sccPath))).toBe(scc.binarySha256);
-                expect(hashOf(await readFile(ccccPath))).toBe(cccc.binarySha256);
-                expect(hashOf(await readFile(rgPath))).toBe(rg.binarySha256);
-            } finally {
-                await provider.stop();
-                await rm(root, { recursive: true, force: true });
-            }
-        }
-    );
-
-    test.skipIf(!artifactAvailable)(
-        'pins trusted BASE instructions and the prompt assembly order in the provider payload',
-        async () => {
-            const root = await mkdtemp(path.join(tmpdir(), 'sakre-artifact-order-'));
-            const provider = startFakeProvider();
-
-            try {
-                const repository = await createAgentsRepository(root);
-                const environment = await createArtifactEnvironment(root, provider.baseURL);
                 /* The guidance fixture lives outside the Git repository. */
                 const guidanceText = 'GUIDANCE MARKER: focus on the database migration path.';
                 const guidancePath = path.join(root, 'artifact-guidance.md');
@@ -234,14 +138,30 @@ describe('compiled engine artifact', () => {
                         '--instructions',
                         guidancePath
                     ],
-                    environment,
+                    artifactEnvironment({ home, cache, bin, isolatedPath, providerBaseURL: provider.baseURL }),
                     { cwd: repository.rootDir }
                 );
 
                 expect(result.stderr).not.toContain('::error::');
                 expect(result.exitCode).toBe(0);
+                expect(result.stdout).toContain('Reviewed commit:');
+                expect(result.stdout).toContain('<summary>Review intelligence · deterministic SCC + CCCC</summary>');
+                expect(result.stdout).toContain('### Analysis signals');
+                /* The embedded CCCC binary must actually execute: a degraded
+                   measurement renders the explicit unavailable message instead
+                   of the distribution table. */
+                expect(result.stdout).toContain('<summary>Functions / CCCC</summary>');
+                expect(result.stdout).toContain('| Function count |');
+                expect(result.stdout).not.toContain('CCCC distributions unavailable');
                 const requests = provider.requests.filter((request) => request.tools.length > 0);
-                expect(requests.length).toBeGreaterThan(0);
+                expect(requests.length).toBeGreaterThanOrEqual(5);
+
+                for (const request of provider.requests) {
+                    expect(request.system).not.toContain('USER LEVEL AGENTS INSTRUCTIONS MUST NOT LEAK');
+                    expect(request.userText).not.toContain('USER LEVEL AGENTS INSTRUCTIONS MUST NOT LEAK');
+                }
+
+                await assertMaterializedNativeAssets(home, cache);
 
                 for (const request of requests) {
                     expect(request.system).toContain('Instructions from:');
@@ -318,12 +238,6 @@ describe('compiled engine artifact', () => {
             }
         }
     );
-
-    test.skipIf(!artifactAvailable)('reports its version without starting a review', async () => {
-        const result = await runArtifact(['--version'], {});
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout.trim()).not.toBe('');
-    });
 });
 
 interface ArtifactEnvironmentInput {
@@ -369,6 +283,36 @@ async function createAgentsRepository(root: string): Promise<{ rootDir: string; 
     git(rootDir, ['commit', '-qm', 'head']);
 
     return { rootDir, baseSha, headSha: rev(rootDir, 'HEAD') };
+}
+
+/* The embedded SCC, CCCC and rg assets were materialized from
+   the executable, not resolved from PATH. */
+async function assertMaterializedNativeAssets(home: string, cache: string): Promise<void> {
+    const scc = nativeAssetFor(pinnedNativeAssetManifest, 'scc', target ?? 'linux-x64');
+    const cccc = nativeAssetFor(pinnedNativeAssetManifest, 'cccc', target ?? 'linux-x64');
+    const rg = nativeAssetFor(pinnedNativeAssetManifest, 'rg', target ?? 'linux-x64');
+    let cacheRoot = cache;
+
+    if (process.platform === 'darwin') {
+        cacheRoot = path.join(home, 'Library', 'Caches');
+    }
+
+    const sccPath = path.join(cacheRoot, 'sakre', 'bin', 'scc', `${scc.version}-${scc.binarySha256}`, scc.binaryPath);
+
+    const ccccPath = path.join(
+        cacheRoot,
+        'sakre',
+        'bin',
+        'cccc',
+        `${cccc.version}-${cccc.binarySha256}`,
+        cccc.binaryPath
+    );
+
+    const rgPath = path.join(cacheRoot, 'sakre', 'bin', 'rg', `${rg.version}-${rg.binarySha256}`, rg.binaryPath);
+
+    expect(hashOf(await readFile(sccPath))).toBe(scc.binarySha256);
+    expect(hashOf(await readFile(ccccPath))).toBe(cccc.binarySha256);
+    expect(hashOf(await readFile(rgPath))).toBe(rg.binarySha256);
 }
 
 function artifactEnvironment(input: ArtifactEnvironmentInput): Record<string, string> {

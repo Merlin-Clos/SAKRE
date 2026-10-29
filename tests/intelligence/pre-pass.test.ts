@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, describe, expect, test } from 'bun:test';
 import { execSync } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import nativeAssets from '../../native-assets.json' with { type: 'json' };
@@ -82,6 +82,34 @@ async function createFixture(): Promise<Fixture> {
 
     return { rootDir, baseSha, headSha: rev(rootDir) };
 }
+
+/* The standard fixture is built once and copied privately per test with
+   identical SHAs. */
+interface SharedFixtureHolder {
+    fixture?: Fixture;
+}
+
+const sharedFixtureHolder: SharedFixtureHolder = {};
+
+async function copyFixture(): Promise<Fixture> {
+    let template = sharedFixtureHolder.fixture;
+
+    if (template === undefined) {
+        template = await createFixture();
+        sharedFixtureHolder.fixture = template;
+    }
+
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'sakre-prepass-'));
+    await cp(template.rootDir, rootDir, { recursive: true });
+
+    return { rootDir, baseSha: template.baseSha, headSha: template.headSha };
+}
+
+afterAll(async () => {
+    if (sharedFixtureHolder.fixture !== undefined) {
+        await rm(sharedFixtureHolder.fixture.rootDir, { recursive: true, force: true });
+    }
+});
 
 function git(cwd: string, args: readonly string[]): void {
     execSync(['git', ...args].join(' '), { cwd, encoding: 'utf8', stdio: 'ignore' });
@@ -203,7 +231,7 @@ describe('deterministic pre-pass', () => {
             throw new Error('The pre-pass test started without the pinned tools.');
         }
 
-        const fixture = await createFixture();
+        const fixture = await copyFixture();
 
         try {
             const input = {
@@ -253,7 +281,7 @@ describe('deterministic pre-pass', () => {
     });
 
     test('degrades explicitly when CCCC fails and keeps SCC fail-closed', async () => {
-        const fixture = await createFixture();
+        const fixture = await copyFixture();
         const tools = await mkdtemp(path.join(tmpdir(), 'sakre-prepass-tools-'));
 
         try {
@@ -327,7 +355,6 @@ describe('deterministic pre-pass', () => {
                override removes its metrics and its classification stays
                consistent everywhere. */
             const rules = defaultClassificationRules();
-            const base = await runIntelligencePrePass(realInput(fixture, changedGeneratedFiles()));
 
             const overridden = await runIntelligencePrePass({
                 ...realInput(fixture, changedGeneratedFiles()),
@@ -340,14 +367,14 @@ describe('deterministic pre-pass', () => {
             const overriddenFile = overridden.map.files.find((file) => file.path === 'src/a.ts');
             expect(overriddenFile?.classification).toBe('generated');
             expect(overridden.map.coverage.scc.notCounted).toContain('src/a.ts');
-            expect(overridden.map.repository.head.files).toBe(base.map.repository.head.files - 1);
+            expect(overridden.map.repository.head.files).toBe(measured.map.repository.head.files - 1);
         } finally {
             await rm(fixture.rootDir, { recursive: true, force: true });
         }
     });
 
     test('measures the exact head commit even when the working tree is dirty', async () => {
-        const fixture = await createFixture();
+        const fixture = await copyFixture();
         const tools = await mkdtemp(path.join(tmpdir(), 'sakre-prepass-dirty-'));
 
         try {
@@ -384,7 +411,7 @@ describe('deterministic pre-pass', () => {
     });
 
     test('propagates cancellation during a CCCC measurement instead of degrading', async () => {
-        const fixture = await createFixture();
+        const fixture = await copyFixture();
         const tools = await mkdtemp(path.join(tmpdir(), 'sakre-prepass-cancel-'));
         let measuredTree: string | null = null;
 
@@ -443,7 +470,7 @@ await new Promise((resolve) => setTimeout(resolve, 5000));
     });
 
     test('reports an unavailable base SHA as a typed SnapshotError', async () => {
-        const fixture = await createFixture();
+        const fixture = await copyFixture();
         const tools = await mkdtemp(path.join(tmpdir(), 'sakre-prepass-missing-'));
 
         try {

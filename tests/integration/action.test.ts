@@ -1,11 +1,11 @@
-import { describe, expect, setDefaultTimeout, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { spawn } from 'node:child_process';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { nativeTargetFor, releaseArtifactName } from '../../src/native/platform';
-import { parseResolverPhases } from '../helpers/action-resolver';
+import { parseResolverPhases, stubClock } from '../helpers/action-resolver';
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dir, '..', '..');
 
@@ -56,29 +56,39 @@ interface GitHubFixture {
     largePatch?: boolean;
 }
 
+/* The workspace shape is identical for every harness: built once, copied
+   privately per test with identical SHAs. */
+interface WorkspaceTemplate {
+    dir: string;
+    baseSha: string;
+    headSha: string;
+}
+
+interface WorkspaceTemplateHolder {
+    template?: WorkspaceTemplate;
+}
+
+const workspaceTemplateHolder: WorkspaceTemplateHolder = {};
+
+beforeAll(async () => {
+    if (!artifactAvailable) {
+        return;
+    }
+
+    const source = await mkdtemp(path.join(tmpdir(), 'sakre-action-workspace-template-'));
+    const built = await createRepository(path.join(source, 'workspace'));
+    workspaceTemplateHolder.template = { dir: built.workspace, baseSha: built.baseSha, headSha: built.headSha };
+});
+
+afterAll(async () => {
+    const { template } = workspaceTemplateHolder;
+
+    if (template !== undefined) {
+        await rm(path.dirname(template.dir), { recursive: true, force: true });
+    }
+});
+
 describe.skipIf(!artifactAvailable)('standalone Action engine', () => {
-    test('runs a mock review end-to-end without provider traffic or source checkouts', async () => {
-        const harness = await startFixture({ mockMode: true });
-
-        try {
-            const result = await harness.run();
-
-            if (result.exitCode !== 0) {
-                process.stderr.write(`Action engine failed: ${JSON.stringify(result)}\n`);
-            }
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).not.toContain('::error::');
-            expect(harness.fixture.progressBodies).toHaveLength(1);
-            expect(harness.fixture.progressBodies[0]).toContain('review in progress');
-            expect(harness.fixture.finalBodies).toHaveLength(1);
-            expect(harness.fixture.finalBodies[0]).toContain('"status":"complete"');
-            expect(harness.fixture.finalBodies[0]).toContain('"verdict":"clean"');
-        } finally {
-            await harness.close();
-        }
-    });
-
     test('aborts an over-budget diff with a published explanation and a failed step', async () => {
         const harness = await startFixture({ mockMode: true, largePatch: true });
 
@@ -224,6 +234,10 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
     test('executes the injected engine binary and posts the review', async () => {
         const summaryRoot = await mkdtemp(path.join(tmpdir(), 'sakre-action-summary-'));
         const summaryPath = path.join(summaryRoot, 'summary.md');
+        /* Controlled clock shared with the resolver contract tests: phase
+           durations must not depend on the runner wall clock jumping. */
+        const clockRoot = await mkdtemp(path.join(tmpdir(), 'sakre-action-clock-'));
+        const stubBin = await stubClock(clockRoot);
 
         const harness = await startFixture({
             mockMode: true,
@@ -233,6 +247,7 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
                 GITHUB_ACTION_PATH: REPOSITORY_ROOT,
                 GITHUB_STEP_SUMMARY: summaryPath,
                 SAKRE_ENGINE_BINARY: artifactPath,
+                PATH: `${stubBin}${path.delimiter}${process.env.PATH ?? ''}`,
                 RUNNER_ARCH,
                 RUNNER_OS
             }
@@ -246,20 +261,25 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
             }
 
             expect(result.exitCode).toBe(0);
+            expect(result.stderr).not.toContain('::error::');
             const phases = parseResolverPhases(result.stderr);
             expect(phases.source).toBe('override');
             /* The override path skips the delivery phases, but the engine run
                itself must still be timed or the instrumentation is broken. */
             expect(phases.execute_ms).toBeGreaterThan(0);
             expect(phases.total_ms).toBeGreaterThanOrEqual(phases.execute_ms);
+            expect(harness.fixture.progressBodies).toHaveLength(1);
+            expect(harness.fixture.progressBodies[0]).toContain('review in progress');
             expect(harness.fixture.finalBodies).toHaveLength(1);
             expect(harness.fixture.finalBodies[0]).toContain('"status":"complete"');
+            expect(harness.fixture.finalBodies[0]).toContain('"verdict":"clean"');
             const summary = await Bun.file(summaryPath).text();
             expect(summary).toContain('| bootstrap before spawn, excluding download |');
             expect(summary).toContain('source: `override`');
         } finally {
             await harness.close();
             await rm(summaryRoot, { recursive: true, force: true });
+            await rm(clockRoot, { recursive: true, force: true });
         }
     });
 
@@ -326,8 +346,8 @@ async function startFixture(options: FixtureOptions): Promise<FixtureHarness> {
     const root = await mkdtemp(path.join(tmpdir(), 'sakre-action-engine-'));
     const workspace = path.join(root, 'workspace');
     const runnerTemp = path.join(root, 'runner-temp');
-    await Promise.all([mkdir(workspace), mkdir(runnerTemp)]);
-    const revisions = await createRepository(workspace);
+    await mkdir(runnerTemp, { recursive: true });
+    const revisions = await instantiateWorkspace(workspace);
 
     const fixture: GitHubFixture = {
         baseSha: revisions.baseSha,
@@ -434,7 +454,20 @@ async function runAction(input: {
     return { exitCode, stdout, stderr };
 }
 
-async function createRepository(workspace: string): Promise<{ baseSha: string; headSha: string }> {
+async function instantiateWorkspace(workspace: string): Promise<{ baseSha: string; headSha: string }> {
+    const { template } = workspaceTemplateHolder;
+
+    if (template === undefined) {
+        throw new Error('The workspace template was not built in beforeAll.');
+    }
+
+    await cp(template.dir, workspace, { recursive: true });
+
+    return { baseSha: template.baseSha, headSha: template.headSha };
+}
+
+async function createRepository(workspace: string): Promise<{ workspace: string; baseSha: string; headSha: string }> {
+    await mkdir(workspace, { recursive: true });
     run('git', ['init', '-q', '-b', 'main'], workspace);
     await mkdir(path.join(workspace, 'src'));
     const lines = Array.from({ length: 20 }, (_unused, index) => `export const value${index} = ${index};`).join('\n');
@@ -450,7 +483,7 @@ async function createRepository(workspace: string): Promise<{ baseSha: string; h
     run('git', ['add', '.'], workspace);
     run('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'head'], workspace);
 
-    return { baseSha, headSha: run('git', ['rev-parse', 'HEAD'], workspace) };
+    return { workspace, baseSha, headSha: run('git', ['rev-parse', 'HEAD'], workspace) };
 }
 
 interface GitHubHandlerInput {

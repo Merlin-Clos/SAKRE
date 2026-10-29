@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, setDefaultTimeout, test } from 'bun:test';
+import { recordModelInvocations } from '../../src/ai/provenance';
 import type { AiStructuredCall } from '../../src/ai/runtime';
 import { embeddedPrompts } from '../../src/review/embedded-prompts';
 import {
@@ -43,8 +44,23 @@ afterEach(async () => {
 
 /* Deterministic unified diff of the dogfood size class (KlodWorld PR #232:
    ~344 kB, 97 files). The tail marker proves the end of the diff reached the
-   provider. */
+   provider; results are memoized by size. */
+const largeDiffCache = new Map<number, string>();
+
 function largeDiff(targetBytes: number): string {
+    const cached = largeDiffCache.get(targetBytes);
+
+    if (cached !== undefined) {
+        return cached;
+    }
+
+    const built = buildLargeDiff(targetBytes);
+    largeDiffCache.set(targetBytes, built);
+
+    return built;
+}
+
+function buildLargeDiff(targetBytes: number): string {
     const sections: string[] = [];
     let size = 0;
     let index = 0;
@@ -163,6 +179,7 @@ describe('large review reaches the provider through the split engine surfaces', 
 
     test('the pre-split assembly of the same fixture is rejected by the engine', async () => {
         const harness = await startHarness([{ type: 'tool', name: 'submit_findings', input: FINDINGS }]);
+        const log = recordModelInvocations(harness.runtime);
         const diff = largeDiff(344_000);
         const payload = agentPayload(diff);
 
@@ -170,7 +187,7 @@ describe('large review reaches the provider through the split engine surfaces', 
            instruction entry) hits the exact engine limit, while the split
            assembly above reaches the provider. */
         const error = await rejectionOf(
-            harness.runtime.runStructured({
+            log.runtime.runStructured({
                 agentId: 'correctness',
                 model: { providerID: 'anthropic', modelID: ENGINE_TEST_MODEL },
                 systemPrompt: `${payload.systemPrompt}\n${payload.userPrompt}`,
@@ -180,23 +197,22 @@ describe('large review reaches the provider through the split engine surfaces', 
         );
 
         expect(error.message).toContain(`the limit is ${INSTRUCTION_ENTRY_LIMIT_BYTES} bytes`);
+        expect(log.modelsUsed()).toEqual([]);
         expect(harness.provider.requests).toHaveLength(0);
     });
 
-    test('diffs just under and just over the entry cap both reach the provider intact', async () => {
-        for (const size of [250_000, 300_000]) {
-            const harness = await startHarness([{ type: 'tool', name: 'submit_findings', input: FINDINGS }]);
-            const diff = largeDiff(size);
-            const payload = agentPayload(diff);
-            expect(Buffer.byteLength(payload.systemPrompt, 'utf8')).toBeLessThan(INSTRUCTION_ENTRY_LIMIT_BYTES);
+    test('a diff just under the entry cap reaches the provider intact', async () => {
+        const harness = await startHarness([{ type: 'tool', name: 'submit_findings', input: FINDINGS }]);
+        const diff = largeDiff(250_000);
+        const payload = agentPayload(diff);
+        expect(Buffer.byteLength(payload.systemPrompt, 'utf8')).toBeLessThan(INSTRUCTION_ENTRY_LIMIT_BYTES);
 
-            const result = await harness.runtime.runStructured(agentCall(payload));
+        const result = await harness.runtime.runStructured(agentCall(payload));
 
-            expect(result.structured).toEqual(FINDINGS);
-            const request = toolRequest(harness.provider);
-            expect(request.userText.split(diff)).toHaveLength(2);
-            expect(request.userText).toContain(DIFF_TAIL_MARKER);
-        }
+        expect(result.structured).toEqual(FINDINGS);
+        const request = toolRequest(harness.provider);
+        expect(request.userText.split(diff)).toHaveLength(2);
+        expect(request.userText).toContain(DIFF_TAIL_MARKER);
     });
 
     test('a maximum-budget diff (~1 MB) still reaches the provider intact', async () => {

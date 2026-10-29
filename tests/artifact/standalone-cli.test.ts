@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import packageJson from '../../package.json' with { type: 'json' };
 import { PRODUCT_NAME } from '../../src/identity';
-import { createRepository } from '../helpers/artifact-repository';
+import { createRepositoryTemplate, instantiateRepository, type TemplateHolder } from '../helpers/artifact-repository';
 import {
     credentialFreeEnvironment,
     reviewEnvironment,
@@ -21,8 +21,16 @@ setDefaultTimeout(180_000);
 
 let root = '';
 
+const repositoryTemplateHolder: TemplateHolder = {};
+
 beforeAll(async () => {
     root = await mkdtemp(path.join(tmpdir(), 'sakre-standalone-'));
+
+    if (!standaloneArtifactAvailable) {
+        return;
+    }
+
+    repositoryTemplateHolder.template = await createRepositoryTemplate(root);
 });
 
 afterAll(async () => {
@@ -92,16 +100,21 @@ describe('standalone CLI artifact', () => {
     });
 
     test.skipIf(!standaloneArtifactAvailable)(
-        'reviews with Git context and terminal output without any GitHub credential',
+        'reviews with Git context, trusted --config and --output-file without a GitHub credential',
         async () => {
             const directory = await mkdtemp(path.join(root, 'git-context-'));
-            const repository = await createRepository(directory);
+            const repository = await instantiateRepository(repositoryTemplateHolder.template, directory);
             const environment = await reviewEnvironment(root);
+            const trustedConfig = path.join(directory, 'trusted-local.yml');
+            const outputFile = path.join(directory, 'review.md');
+            await writeFile(trustedConfig, 'provider: openai-compatible\n', 'utf8');
 
             const result = await runStandalone(
                 [
                     'local',
                     '--mock',
+                    '--config',
+                    trustedConfig,
                     '--context',
                     'git',
                     '--output',
@@ -111,7 +124,9 @@ describe('standalone CLI artifact', () => {
                     '--head',
                     repository.headSha,
                     '--repo',
-                    repository.rootDir
+                    repository.rootDir,
+                    '--output-file',
+                    outputFile
                 ],
                 { cwd: repository.rootDir, env: environment }
             );
@@ -125,9 +140,11 @@ describe('standalone CLI artifact', () => {
             expect(result.stdout).toContain('<summary>Functions / CCCC</summary>');
             expect(result.stdout).toContain('| Function count |');
             expect(result.stdout).not.toContain('CCCC distributions unavailable');
+            expect(result.stderr).toContain('"provider":"openai-compatible"');
             expect(result.stderr).not.toContain('::error::');
             /* The isolated PATH contains no `gh`; Git context must not need it. */
             expect(result.stderr).not.toContain('GitHub');
+            expect(await readFile(outputFile, 'utf8')).toBe(result.stdout);
         }
     );
 
@@ -135,7 +152,7 @@ describe('standalone CLI artifact', () => {
         'reads absolute and cwd-relative --instructions guidance outside a Git repository',
         async () => {
             const directory = await mkdtemp(path.join(root, 'instructions-'));
-            const repository = await createRepository(directory);
+            const repository = await instantiateRepository(repositoryTemplateHolder.template, directory);
             const environment = await reviewEnvironment(root);
             /* The guidance fixture and the process working directory both sit
                outside any Git repository: the file is read only because the
@@ -169,6 +186,7 @@ describe('standalone CLI artifact', () => {
             );
             expect(result.stderr).toContain('Do not put secrets in review guidance.');
             expect(result.stderr).not.toContain(guidanceText);
+            expect(result.stderr).toContain('"provider":"anthropic"');
 
             /* The same file resolves relative to the process cwd: the compiled
                binary and the in-process CLI share the contract. */
@@ -220,80 +238,6 @@ describe('standalone CLI artifact', () => {
             expect(failed.stdout).toBe('');
             expect(failed.stderr).toContain('Error:');
             expect(failed.stderr).toContain('8000');
-        }
-    );
-
-    test.skipIf(!standaloneArtifactAvailable)('honors a trusted --config file outside the repository', async () => {
-        const directory = await mkdtemp(path.join(root, 'trusted-config-'));
-        const repository = await createRepository(directory);
-        const environment = await reviewEnvironment(root);
-        const trustedConfig = path.join(directory, 'trusted-local.yml');
-        await writeFile(trustedConfig, 'provider: openai-compatible\n', 'utf8');
-
-        const baseline = await runStandalone(
-            [
-                'local',
-                '--mock',
-                '--base',
-                repository.baseSha,
-                '--head',
-                repository.headSha,
-                '--repo',
-                repository.rootDir
-            ],
-            { cwd: repository.rootDir, env: environment }
-        );
-
-        expect(baseline.exitCode, standaloneFailure(baseline)).toBe(0);
-        expect(baseline.stderr).toContain('"provider":"anthropic"');
-
-        const trusted = await runStandalone(
-            [
-                'local',
-                '--mock',
-                '--config',
-                trustedConfig,
-                '--base',
-                repository.baseSha,
-                '--head',
-                repository.headSha,
-                '--repo',
-                repository.rootDir
-            ],
-            { cwd: repository.rootDir, env: environment }
-        );
-
-        expect(trusted.exitCode, standaloneFailure(trusted)).toBe(0);
-        expect(trusted.stderr).toContain('"provider":"openai-compatible"');
-    });
-
-    test.skipIf(!standaloneArtifactAvailable)(
-        'writes the report with --output-file while terminal output still reaches stdout',
-        async () => {
-            const directory = await mkdtemp(path.join(root, 'output-file-'));
-            const repository = await createRepository(directory);
-            const environment = await reviewEnvironment(root);
-            const target = path.join(directory, 'review.md');
-
-            const result = await runStandalone(
-                [
-                    'local',
-                    '--mock',
-                    '--base',
-                    repository.baseSha,
-                    '--head',
-                    repository.headSha,
-                    '--repo',
-                    repository.rootDir,
-                    '--output-file',
-                    target
-                ],
-                { cwd: repository.rootDir, env: environment }
-            );
-
-            expect(result.exitCode, standaloneFailure(result)).toBe(0);
-            expect(result.stdout).toContain('Reviewed commit:');
-            expect(await readFile(target, 'utf8')).toBe(result.stdout);
         }
     );
 });

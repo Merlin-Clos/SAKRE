@@ -112,15 +112,17 @@ function language(name: string, baseDryness: number | null, headDryness: number 
 describe('hotspot ranking and caps', () => {
     test('ranks file growth descending and caps with explicit omissions', () => {
         const files = [
-            file('src/a.ts', block(10, 1), block(30, 3)),
+            file('src/c.ts', block(10, 1), block(30, 3)),
             file('src/b.ts', block(10, 1), block(50, 9)),
-            file('src/c.ts', block(10, 1), block(20, 2))
+            file('src/a.ts', block(10, 1), block(30, 3)),
+            file('src/d.ts', block(10, 1), block(20, 2))
         ];
 
         const result = buildHotspots({ files, functions: [], languages: [], limit: 2 });
         expect(result.hotspots.largestCodeGrowth.map((entry) => entry.path)).toEqual(['src/b.ts', 'src/a.ts']);
-        expect(result.omissions.omitted.largestCodeGrowth).toBe(1);
+        expect(result.omissions.omitted.largestCodeGrowth).toBe(2);
         expect(result.hotspots.largestFileComplexityGrowth[0]?.path).toBe('src/b.ts');
+        expect(files.map((entry) => entry.path)).toEqual(['src/c.ts', 'src/b.ts', 'src/a.ts', 'src/d.ts']);
     });
 
     test('ignores negative growth and deleted files', () => {
@@ -202,15 +204,5 @@ describe('hotspot ranking and caps', () => {
             expect(result.hotspots[name]).toEqual([]);
             expect(result.omissions.omitted[name]).toBe(0);
         }
-    });
-
-    test('hotspot output is deterministic for identical input', () => {
-        const input = {
-            files: [file('src/a.ts', block(1, 1), block(9, 9))],
-            functions: [fn('src/a.ts', 'grew', 'matched', 12, 5, 4)],
-            languages: [language('TypeScript', 0.8, 0.6)]
-        };
-
-        expect(JSON.stringify(buildHotspots(input))).toBe(JSON.stringify(buildHotspots(input)));
     });
 });

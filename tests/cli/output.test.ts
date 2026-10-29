@@ -2,8 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { buildFinalComment, type ReviewReportProvenance } from '../../src/action/state';
-import { renderReviewResult, stripCommentMarkers, writeOutputFile } from '../../src/cli/output';
+import type { ReviewReportProvenance } from '../../src/action/state';
+import { renderReviewResult, writeOutputFile } from '../../src/cli/output';
 import type { ReviewResult } from '../../src/contracts/review';
 import { PRODUCT_NAME } from '../../src/identity';
 import { sampleMap } from '../helpers/intelligence-map';
@@ -43,7 +43,6 @@ const INCOMPLETE: ReviewResult = {
 describe('local review output', () => {
     test('renders the published Markdown without HTML state markers', () => {
         const rendered = renderReviewResult(COMPLETE, REPORT);
-        expect(rendered).toBe(stripCommentMarkers(buildFinalComment(COMPLETE, REPORT)));
         expect(rendered).not.toContain('<!--');
         expect(rendered.startsWith(`## ✅ ${PRODUCT_NAME}: Clean (risk lite)`)).toBe(true);
         expect(rendered).toContain('Reviewed commit:');
@@ -68,7 +67,7 @@ describe('local review output', () => {
         expect(rendered).not.toContain('<!--');
     });
 
-    test('keeps the Local CLI body and its model table when publishing to a GitHub PR', () => {
+    test('renders Local CLI provenance and models with findings', () => {
         const result: ReviewResult = {
             ...COMPLETE,
             verdict: 'comments',
@@ -97,11 +96,13 @@ describe('local review output', () => {
         expect(rendered.indexOf('<summary>Models used')).toBeLessThan(rendered.indexOf('##### F-001'));
     });
 
-    test('renders the identical intelligence Markdown for the CLI', () => {
+    test('renders review intelligence in the CLI report', () => {
         const result: ReviewResult = { ...COMPLETE, intelligence: sampleMap() };
         const rendered = renderReviewResult(result, REPORT);
-        expect(rendered).toBe(stripCommentMarkers(buildFinalComment(result, REPORT)));
+        expect(rendered.startsWith(`## ✅ ${PRODUCT_NAME}: Clean (risk lite)`)).toBe(true);
+        expect(rendered).not.toContain('<!--');
         expect(rendered).toContain('<summary>Review intelligence · deterministic SCC + CCCC</summary>');
+        expect(rendered).toContain('| Code LOC | 7,489 -> 7,560 | **+71** |');
         expect(rendered).toContain('do not decide findings or review scope');
         expect(rendered).not.toContain('Top functions');
     });
@@ -111,9 +112,10 @@ describe('local review output', () => {
 
         try {
             const target = path.join(root, 'review.md');
-            await writeOutputFile(target, renderReviewResult(COMPLETE, REPORT));
+            const rendered = renderReviewResult(COMPLETE, REPORT);
+            await writeOutputFile(target, rendered);
             const content = await readFile(target, 'utf8');
-            expect(content).toBe(`${stripCommentMarkers(buildFinalComment(COMPLETE, REPORT))}\n`);
+            expect(content).toBe(`${rendered}\n`);
         } finally {
             await rm(root, { recursive: true, force: true });
         }

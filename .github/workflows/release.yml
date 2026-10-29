@@ -49,6 +49,8 @@ jobs:
             - name: Install exact dependencies
               run: bun install --frozen-lockfile
 
+            # The full suite runs in exactly two places: the PR gate and this
+            # tag gate. The release-built binaries are tested below.
             - name: Run release gates
               run: |
                   bun run format:check

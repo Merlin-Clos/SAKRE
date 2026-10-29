@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /* Shared fixture helpers for the compiled-artifact tests. */
@@ -26,6 +26,38 @@ export async function createRepository(root: string): Promise<{ rootDir: string;
     const headSha = rev(rootDir, 'HEAD');
 
     return { rootDir, baseSha, headSha };
+}
+
+/* One slow repository build copied per test: copies stay private to their
+   test while SHAs stay stable across copies. */
+export interface ArtifactRepositoryTemplate {
+    dir: string;
+    baseSha: string;
+    headSha: string;
+}
+
+export interface TemplateHolder {
+    template?: ArtifactRepositoryTemplate;
+}
+
+export async function createRepositoryTemplate(root: string): Promise<ArtifactRepositoryTemplate> {
+    const built = await createRepository(path.join(root, 'template-source'));
+
+    return { dir: built.rootDir, baseSha: built.baseSha, headSha: built.headSha };
+}
+
+export async function instantiateRepository(
+    template: ArtifactRepositoryTemplate | undefined,
+    root: string
+): Promise<ArtifactRepository> {
+    if (template === undefined) {
+        throw new Error('The repository template was not built in beforeAll.');
+    }
+
+    const rootDir = path.join(root, 'repository');
+    await cp(template.dir, rootDir, { recursive: true });
+
+    return { rootDir, baseSha: template.baseSha, headSha: template.headSha };
 }
 
 export function git(rootDir: string, args: string[]): void {

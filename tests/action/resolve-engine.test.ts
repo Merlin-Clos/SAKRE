@@ -11,6 +11,7 @@ import {
     runPwshResolver,
     runResolver,
     sha256,
+    stubClock,
     tempRoot,
     writeActionPin,
     writeExecutable,
@@ -36,23 +37,25 @@ describe('composite Action resolver', () => {
 
         const fakeEngine = await writeExecutable(
             path.join(root, 'fake-engine.sh'),
-            '#!/usr/bin/env bash\nsleep 0.05\nprintf "engine:%s\\n" "$*"\nexit 7\n'
+            '#!/usr/bin/env bash\nprintf "engine:%s\\n" "$*"\nexit 7\n'
         );
+
+        const stubBin = await stubClock(root);
 
         const result = await runResolver({
             root,
             args: ['--version'],
-            env: { SAKRE_ENGINE_BINARY: fakeEngine }
+            env: { SAKRE_ENGINE_BINARY: fakeEngine, PATH: `${stubBin}:${process.env.PATH ?? ''}` }
         });
 
         expect(result.exitCode).toBe(7);
         expect(result.stdout).toContain('engine:--version');
         const phases = parseResolverPhases(result.stderr);
         expect(phases.source).toBe('override');
-        /* The override path has zero pre-execute phases by construction, but a
-           real engine run must be timed or the instrumentation is broken. */
+        expect(phases).toMatchObject({ download_ms: 0, verify_ms: 0, install_ms: 0 });
         expect(phases.execute_ms).toBeGreaterThan(0);
         expect(phases.total_ms).toBeGreaterThanOrEqual(phases.execute_ms);
+        expect(phases.total_ms).toBeGreaterThanOrEqual(phases.bootstrap_ms + phases.execute_ms);
         const summary = await readFile(path.join(root, 'summary.md'), 'utf8');
         expect(summary).toContain('| bootstrap before spawn, excluding download |');
         expect(summary).toContain('source: `override`');
@@ -99,6 +102,7 @@ describe('composite Action resolver', () => {
         const digest = sha256(await readFile(fixture));
         const actionPath = await writeActionPin(root, 'v1.0.0', { [LINUX_GZ]: digest });
         const stubBin = await stubCurl(root, fixture);
+        await stubClock(root);
 
         const result = await runResolver({
             root,
@@ -115,6 +119,12 @@ describe('composite Action resolver', () => {
            network transfer from the benchmark. */
         expect(phases.download_ms).toBeGreaterThan(0);
         expect(phases.total_ms).toBeGreaterThanOrEqual(phases.download_ms);
+        expect(phases.resolve_ms).toBeGreaterThan(0);
+        expect(phases.verify_ms).toBeGreaterThan(0);
+        expect(phases.install_ms).toBeGreaterThan(0);
+        expect(phases.execute_ms).toBeGreaterThan(0);
+        expect(phases.bootstrap_ms).toBeGreaterThanOrEqual(phases.resolve_ms + phases.verify_ms + phases.install_ms);
+        expect(phases.total_ms).toBeGreaterThanOrEqual(phases.bootstrap_ms + phases.download_ms + phases.execute_ms);
         const installed = path.join(root, ...INSTALLED);
         expect(sha256(await readFile(installed))).toBe(digest);
     });

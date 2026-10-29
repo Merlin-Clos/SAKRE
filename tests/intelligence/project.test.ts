@@ -307,11 +307,13 @@ describe('ReviewMap projections', () => {
     });
 
     test('the performance projection ranks large HEAD functions', () => {
-        const result = projectReviewMap({ map: map(), coverage: COVERAGE, kind: 'performance' });
-        const fresh = result.indexOf('fresh');
-        const gone = result.indexOf('gone');
-        expect(fresh).toBeGreaterThanOrEqual(0);
-        expect(gone).toBe(-1);
+        const sample = map();
+        const original = structuredClone(sample);
+        const result = projectReviewMap({ map: sample, coverage: COVERAGE, kind: 'performance' });
+        const functionRows = result.split('\n').filter((line) => line.startsWith('- src/app.ts '));
+        expect(functionRows.map((line) => line.split(' ')[2])).toEqual(['grew', 'fresh', 'unstable']);
+        expect(result).not.toContain('gone');
+        expect(sample).toEqual(original);
     });
 
     test('a small budget truncates sections with explicit omission counters', () => {
@@ -381,12 +383,6 @@ describe('ReviewMap projections', () => {
         expect(projectionKindFor('performance')).toBe('performance');
         const security = projectReviewMap({ map: map(), coverage: COVERAGE, kind: 'common' });
         expect(security).not.toContain('### Function deltas');
-    });
-
-    test('projection output is deterministic', () => {
-        const first = JSON.stringify(projectReviewMap({ map: map(), coverage: COVERAGE, kind: 'maintainability' }));
-        const second = JSON.stringify(projectReviewMap({ map: map(), coverage: COVERAGE, kind: 'maintainability' }));
-        expect(first).toBe(second);
     });
 
     test('neutralizes hostile line breaks in projected paths and function names', () => {

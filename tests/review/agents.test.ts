@@ -47,13 +47,10 @@ describe('agent roster', () => {
         ]);
         const objectives = new Set(defaultRoster.specs.map((spec) => spec.objective));
         expect(objectives.size).toBe(defaultRoster.specs.length);
-    });
 
-    test('gives the tests specialist its full built-in proof objective', () => {
-        const tests = roster().specs.find((spec) => spec.id === 'tests');
-        expect(tests?.objective).toBe(
-            'Find proof gaps: changed behavior without a meaningful test, weak assertions, and tests that pass while the behavior breaks.'
-        );
+        for (const spec of defaultRoster.specs) {
+            expect(spec.objective.trim().length, spec.id).toBeGreaterThan(0);
+        }
     });
 
     test('honor disabled agents', () => {

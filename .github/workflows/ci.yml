@@ -1,10 +1,8 @@
 name: SAKRE CI
 
 on:
-    push:
-        branches:
-            - main
-            - develop
+    # No push trigger: branch protection already proves every merge on its PR,
+    # so post-merge runs would retest the same tree.
     pull_request:
 
 permissions:

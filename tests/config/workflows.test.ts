@@ -2,12 +2,13 @@ import { expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-/* Only main pushes re-run CI as a post-merge backstop. develop merges are
-   proven by the protected PR gate (green checks plus an up-to-date branch are
-   required to merge), so a merge result adds no untested tree. */
-test('only main pushes re-run CI while protected PRs prove develop merges', async () => {
+/* CI runs on pull requests only. develop and main both require green,
+   up-to-date PRs and forbid direct pushes, so every merge result already went
+   through the suite on its PR; post-merge push runs would retest the same
+   tree. Release tags are gated separately by release.yml. */
+test('CI runs on pull requests with no post-merge push trigger', async () => {
     const pushSchema = z.object({ branches: z.array(z.string()) });
-    const triggerSchema = z.object({ push: pushSchema, pull_request: z.null() });
+    const triggerSchema = z.object({ push: pushSchema.optional(), pull_request: z.null() });
     const jobSchema = z.object({ if: z.string().optional() });
 
     const workflowSchema = z.object({
@@ -22,7 +23,10 @@ test('only main pushes re-run CI while protected PRs prove develop merges', asyn
     const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
     const workflow = workflowSchema.parse(data);
 
-    expect(new Set(workflow.on.push.branches)).toEqual(new Set(['main']));
+    /* The push trigger is declared optional in the schema above so a
+       reintroduced one survives parsing and fails here instead of silently
+       passing contract validation. */
+    expect(workflow.on.push).toBeUndefined();
 
     for (const job of Object.values(workflow.jobs)) {
         expect(job.if).toBeUndefined();

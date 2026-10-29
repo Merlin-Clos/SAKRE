@@ -127,6 +127,9 @@ test('artifact jobs gate PR CI while release keeps bounded per-target publicatio
     expect(releaseText).toContain('actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333');
     expect(releaseText).toContain('sha256sum --check');
     expect(releaseText).toContain('needs: [validate, build, linux-compatibility]');
+    /* The full suite runs in exactly two places: the PR gate and the release
+       tag gate. A tag never ships untested source. */
+    expect(releaseText).toContain('bun run test');
     expect(releaseText).toContain('test -f dist-release/sakre-linux-arm64.gz');
 
     const benchmarkText = await Bun.file('.github/workflows/benchmark.yml').text();

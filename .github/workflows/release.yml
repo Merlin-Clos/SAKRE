@@ -49,14 +49,16 @@ jobs:
             - name: Install exact dependencies
               run: bun install --frozen-lockfile
 
-            # The full unit suite is not re-run here: the tag must point at a
-            # CI-green main HEAD (proven by the PR gate), and the release-built
-            # binaries are still tested by the build and compatibility legs below.
+            # The full suite runs in exactly two places: the PR gate (before any
+            # merge) and here (before any publication). Post-merge push runs
+            # were removed as redundant; the release-built binaries are
+            # additionally tested by the build and compatibility legs below.
             - name: Run release gates
               run: |
                   bun run format:check
                   bun run lint
                   bun run typecheck
+                  bun run test
 
     build:
         needs: validate

@@ -44,8 +44,24 @@ afterEach(async () => {
 
 /* Deterministic unified diff of the dogfood size class (KlodWorld PR #232:
    ~344 kB, 97 files). The tail marker proves the end of the diff reached the
-   provider. */
+   provider. Pure in its arguments, so results are memoized by size: several
+   cases share the byte-identical 344 kB fixture without rebuilding it. */
+const largeDiffCache = new Map<number, string>();
+
 function largeDiff(targetBytes: number): string {
+    const cached = largeDiffCache.get(targetBytes);
+
+    if (cached !== undefined) {
+        return cached;
+    }
+
+    const built = buildLargeDiff(targetBytes);
+    largeDiffCache.set(targetBytes, built);
+
+    return built;
+}
+
+function buildLargeDiff(targetBytes: number): string {
     const sections: string[] = [];
     let size = 0;
     let index = 0;

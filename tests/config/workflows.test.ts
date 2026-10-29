@@ -2,7 +2,10 @@ import { expect, test } from 'bun:test';
 import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
-test('direct develop and main pushes retain the same CI as pull requests', async () => {
+/* Only main pushes re-run CI as a post-merge backstop. develop merges are
+   proven by the protected PR gate (green checks plus an up-to-date branch are
+   required to merge), so a merge result adds no untested tree. */
+test('only main pushes re-run CI while protected PRs prove develop merges', async () => {
     const pushSchema = z.object({ branches: z.array(z.string()) });
     const triggerSchema = z.object({ push: pushSchema, pull_request: z.null() });
     const jobSchema = z.object({ if: z.string().optional() });
@@ -19,7 +22,7 @@ test('direct develop and main pushes retain the same CI as pull requests', async
     const data: unknown = parseYaml(await Bun.file('.github/workflows/ci.yml').text());
     const workflow = workflowSchema.parse(data);
 
-    expect(new Set(workflow.on.push.branches)).toEqual(new Set(['main', 'develop']));
+    expect(new Set(workflow.on.push.branches)).toEqual(new Set(['main']));
 
     for (const job of Object.values(workflow.jobs)) {
         expect(job.if).toBeUndefined();

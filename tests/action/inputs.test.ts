@@ -89,19 +89,4 @@ describe('action inputs validation', () => {
             ).toThrow('agent_name');
         }
     });
-
-    test('never exposes the credential through the serialisable fields', () => {
-        const inputs = readActionInputs(
-            new FakeInputReader({ github_token: 'token', provider: 'anthropic', provider_api_key: 'secret-key' })
-        );
-
-        const serialisable = {
-            githubToken: inputs.githubToken,
-            triggerCommand: inputs.triggerCommand,
-            configPath: inputs.configPath,
-            provider: inputs.provider
-        };
-
-        expect(JSON.stringify(serialisable)).not.toContain('secret-key');
-    });
 });

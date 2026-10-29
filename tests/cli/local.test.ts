@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
@@ -19,6 +19,7 @@ import { PRODUCT_NAME, PROVIDER_API_KEY_ENV } from '../../src/identity';
 import type { NativeRuntime } from '../../src/native/runtime';
 import { startFakeProvider } from '../helpers/fake-artifact-provider';
 import { ANTHROPIC_TEST_MODEL } from '../helpers/catalogue-models';
+import { scriptedTool } from '../helpers/scripted-tool';
 
 interface CliRepository {
     rootDir: string;
@@ -48,11 +49,28 @@ let homeRoot = '';
 
 const createdRepositories: string[] = [];
 
+/* Fixture templates: each distinct repository shape is built once in beforeAll
+   and copied per test. Copies are private to their test (later commits, output
+   files and credential stores land on the copy), while the committed content
+   — and therefore the base/head SHAs — is identical across copies. Unknown
+   option shapes fall back to the slow builder so behavior never changes. */
+interface CliRepositoryTemplate {
+    dir: string;
+    baseSha: string;
+    headSha: string;
+}
+
+const cliRepositoryTemplates = new Map<string, CliRepositoryTemplate>();
+
 beforeAll(async () => {
     workspace = await mkdtemp(path.join(tmpdir(), 'sakre-cli-tests-'));
     homeRoot = path.join(workspace, 'home');
     await mkdir(homeRoot);
+    const noAuthBin = path.join(workspace, 'no-auth-bin');
+    await mkdir(noAuthBin);
+    await scriptedTool(noAuthBin, 'gh', 'process.exit(1);\n');
     nativeHolder.runtime = await createFakeNativeRuntime();
+    await buildCliRepositoryTemplates();
 });
 
 /* Native layer stub: the SCC script answers the base-tree measurement with the
@@ -1254,6 +1272,7 @@ describe('local CLI review cycle', () => {
     test('falls back to the Git context when a GitHub remote has no token', async () => {
         const repository = await createCliRepository({ remote: 'https://github.com/acme/demo.git' });
         const stderr = captureStream();
+        let octokitCalls = 0;
 
         const exitCode = await runLocalCli(['--mock', '--base', repository.baseSha, '--head', repository.headSha], {
             cwd: repository.rootDir,
@@ -1263,12 +1282,14 @@ describe('local CLI review cycle', () => {
             native: nativeHolder.runtime,
             githubClientDependencies: {
                 createOctokit: () => {
+                    octokitCalls += 1;
                     throw new Error('GitHub must not be called without a token.');
                 }
             }
         });
 
-        expect(exitCode).toBe(0);
+        expect(octokitCalls).toBe(0);
+        expect(exitCode, stderr.read()).toBe(0);
         expect(stderr.read()).toContain('GitHub context');
     });
 
@@ -1714,6 +1735,7 @@ describe('local CLI review cycle', () => {
     test('fails clearly when --output github-pr has no token', async () => {
         const repository = await createCliRepository({ remote: 'https://github.com/acme/demo.git' });
         const stderr = captureStream();
+        let octokitCalls = 0;
 
         const exitCode = await runLocalCli(
             [
@@ -1732,11 +1754,19 @@ describe('local CLI review cycle', () => {
                 env: minimalEnvironment(),
                 native: nativeHolder.runtime,
                 stdout: captureStream().stream,
-                stderr: stderr.stream
+                stderr: stderr.stream,
+                githubClientDependencies: {
+                    createOctokit: () => {
+                        octokitCalls += 1;
+                        throw new Error('GitHub must not be called without a token.');
+                    }
+                }
             }
         );
 
+        expect(octokitCalls).toBe(0);
         expect(exitCode).toBe(1);
+        expect(stderr.read()).toContain('GitHub context requires a token');
         expect(stderr.read()).toContain('GITHUB_TOKEN');
     });
 
@@ -1773,7 +1803,10 @@ describe('local CLI review cycle', () => {
 });
 
 function minimalEnvironment(): NodeJS.ProcessEnv {
-    return { PATH: process.env.PATH ?? '', HOME: homeRoot };
+    return {
+        PATH: `${path.join(workspace, 'no-auth-bin')}${path.delimiter}${process.env.PATH ?? ''}`,
+        HOME: homeRoot
+    };
 }
 
 function captureStream(): CapturedStream {
@@ -1906,9 +1939,76 @@ interface CliRepositoryOptions {
 const DEFAULT_HEAD_CONTENT = 'export const value = 2;\nexport const extra = true;\n';
 
 async function createCliRepository(options: CliRepositoryOptions = {}): Promise<CliRepository> {
-    const { remote, baseConfig, headConfig, headContent = DEFAULT_HEAD_CONTENT, baseAgents, headAgents } = options;
+    const template = cliRepositoryTemplates.get(templateKey(options));
+
+    if (template === undefined) {
+        return createCliRepositorySlow(options);
+    }
+
     const rootDir = await mkdtemp(path.join(tmpdir(), 'sakre-cli-repo-'));
     createdRepositories.push(rootDir);
+    await cp(template.dir, rootDir, { recursive: true });
+
+    const { remote } = options;
+
+    if (remote !== undefined) {
+        run('git', ['remote', 'add', 'origin', remote], rootDir);
+    }
+
+    return { rootDir, baseSha: template.baseSha, headSha: template.headSha };
+}
+
+/* The remote URL never affects the committed content, so it stays out of the
+   template key and is applied per copy instead. */
+function templateKey(options: CliRepositoryOptions): string {
+    return JSON.stringify({ ...options, remote: undefined });
+}
+
+/* The only templated shapes in this file: default, the AGENTS.md overlay pair,
+   the base/head config pair, and the over-budget head content. Anything else
+   keeps the slow builder through the fallback above. */
+async function buildCliRepositoryTemplates(): Promise<void> {
+    const agents = { baseAgents: 'base instructions\n', headAgents: 'head instructions\n' };
+
+    const configs = {
+        baseConfig: 'provider: openai-compatible\nmodel: base-model\n',
+        headConfig: 'provider: anthropic\n'
+    };
+
+    const variants: CliRepositoryOptions[] = [{}, agents, configs, overBudgetOptions()];
+
+    await Promise.all(
+        variants.map(async (variant, index) => {
+            const dir = path.join(workspace, 'templates', `repository-${index}`);
+            await mkdir(dir, { recursive: true });
+            const { baseSha, headSha } = await buildCliRepositoryAt(dir, variant);
+            cliRepositoryTemplates.set(templateKey(variant), { dir, baseSha, headSha });
+        })
+    );
+}
+
+function overBudgetOptions(): CliRepositoryOptions {
+    const lines = Array.from({ length: 1700 }, (_unused, index) => `export const value${index} = ${index};`);
+
+    return {
+        baseConfig: 'review:\n  diffBudgetChars: 20000\n',
+        headContent: `${lines.join('\n')}\n`
+    };
+}
+
+async function createCliRepositorySlow(options: CliRepositoryOptions): Promise<CliRepository> {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'sakre-cli-repo-'));
+    createdRepositories.push(rootDir);
+    const { baseSha, headSha } = await buildCliRepositoryAt(rootDir, options);
+
+    return { rootDir, baseSha, headSha };
+}
+
+async function buildCliRepositoryAt(
+    rootDir: string,
+    options: CliRepositoryOptions
+): Promise<{ baseSha: string; headSha: string }> {
+    const { remote, baseConfig, headConfig, headContent = DEFAULT_HEAD_CONTENT, baseAgents, headAgents } = options;
     run('git', ['init', '-q', '-b', 'main'], rootDir);
     run('git', ['config', 'user.email', 'cli@example.com'], rootDir);
     run('git', ['config', 'user.name', 'CLI Fixture'], rootDir);
@@ -1947,18 +2047,13 @@ async function createCliRepository(options: CliRepositoryOptions = {}): Promise<
         run('git', ['remote', 'add', 'origin', remote], rootDir);
     }
 
-    return { rootDir, baseSha, headSha };
+    return { baseSha, headSha };
 }
 
 /* Base config with a 20,000-character budget and a head change above it: the
    review aborts before any provider work unless forcing was requested. */
 function createOverBudgetRepository(): Promise<CliRepository> {
-    const lines = Array.from({ length: 1700 }, (_unused, index) => `export const value${index} = ${index};`);
-
-    return createCliRepository({
-        baseConfig: 'review:\n  diffBudgetChars: 20000\n',
-        headContent: `${lines.join('\n')}\n`
-    });
+    return createCliRepository(overBudgetOptions());
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

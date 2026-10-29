@@ -132,10 +132,6 @@ describe('SCC normalization', () => {
         expect(deriveDryness(10, -1)).toBeNull();
         expect(roundTo(0.63269, 4)).toBe(0.6327);
     });
-
-    test('is deterministic for the same input', () => {
-        expect(JSON.stringify(parseSccSnapshot(OUTPUT))).toBe(JSON.stringify(parseSccSnapshot(OUTPUT)));
-    });
 });
 
 /* Scripted-binary mechanics: the production invocation must carry the

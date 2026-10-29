@@ -57,28 +57,6 @@ interface GitHubFixture {
 }
 
 describe.skipIf(!artifactAvailable)('standalone Action engine', () => {
-    test('runs a mock review end-to-end without provider traffic or source checkouts', async () => {
-        const harness = await startFixture({ mockMode: true });
-
-        try {
-            const result = await harness.run();
-
-            if (result.exitCode !== 0) {
-                process.stderr.write(`Action engine failed: ${JSON.stringify(result)}\n`);
-            }
-
-            expect(result.exitCode).toBe(0);
-            expect(result.stderr).not.toContain('::error::');
-            expect(harness.fixture.progressBodies).toHaveLength(1);
-            expect(harness.fixture.progressBodies[0]).toContain('review in progress');
-            expect(harness.fixture.finalBodies).toHaveLength(1);
-            expect(harness.fixture.finalBodies[0]).toContain('"status":"complete"');
-            expect(harness.fixture.finalBodies[0]).toContain('"verdict":"clean"');
-        } finally {
-            await harness.close();
-        }
-    });
-
     test('aborts an over-budget diff with a published explanation and a failed step', async () => {
         const harness = await startFixture({ mockMode: true, largePatch: true });
 
@@ -246,14 +224,18 @@ describe.skipIf(!artifactAvailable)('composite Action delivery', () => {
             }
 
             expect(result.exitCode).toBe(0);
+            expect(result.stderr).not.toContain('::error::');
             const phases = parseResolverPhases(result.stderr);
             expect(phases.source).toBe('override');
             /* The override path skips the delivery phases, but the engine run
                itself must still be timed or the instrumentation is broken. */
             expect(phases.execute_ms).toBeGreaterThan(0);
             expect(phases.total_ms).toBeGreaterThanOrEqual(phases.execute_ms);
+            expect(harness.fixture.progressBodies).toHaveLength(1);
+            expect(harness.fixture.progressBodies[0]).toContain('review in progress');
             expect(harness.fixture.finalBodies).toHaveLength(1);
             expect(harness.fixture.finalBodies[0]).toContain('"status":"complete"');
+            expect(harness.fixture.finalBodies[0]).toContain('"verdict":"clean"');
             const summary = await Bun.file(summaryPath).text();
             expect(summary).toContain('| bootstrap before spawn, excluding download |');
             expect(summary).toContain('source: `override`');

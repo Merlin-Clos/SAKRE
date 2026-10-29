@@ -8,7 +8,7 @@
         "format": "oxfmt --write",
         "format:check": "oxfmt --check",
         "typecheck": "bun check",
-        "test": "bun test",
+        "test": "bun test --parallel --no-isolate",
         "verify:native": "bun scripts/verify-native-assets.ts",
         "update:native": "bun scripts/update-native-assets.ts",
         "build:release": "bun scripts/build-release.ts"

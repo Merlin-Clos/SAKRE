@@ -62,14 +62,20 @@ async function host(providerID: string, modelIds: string[], externalOAuth = fals
 test('isolated embedded catalogue permits its enabled Zen Free routes without credentials', async () => {
     expect(FREE_MODELS.length).toBeGreaterThan(0);
 
+    const instance = await host(
+        'opencode',
+        FREE_MODELS.map((model) => model.id)
+    );
+
+    const location = { directory: instance.directory };
+    const integration = await instance.client.integration.get({ integrationID: 'opencode', location });
+    const providers = await instance.client.provider.list({ location });
+    const models = await instance.client.model.list({ location });
+
+    expect(integration.data.connections).toEqual([]);
+    expect(providers.data.find((provider) => provider.id === 'opencode')?.activation).toBe('enabled');
+
     for (const model of FREE_MODELS) {
-        const instance = await host('opencode', [model.id]);
-        const location = { directory: instance.directory };
-        const integration = await instance.client.integration.get({ integrationID: 'opencode', location });
-        const providers = await instance.client.provider.list({ location });
-        const models = await instance.client.model.list({ location });
-        expect(integration.data.connections).toEqual([]);
-        expect(providers.data.find((provider) => provider.id === 'opencode')?.activation).toBe('enabled');
         const selected = models.data.find((entry) => entry.providerID === 'opencode' && entry.id === model.id);
         expect(selected?.enabled).toBe(true);
         expect(selected?.cost.length).toBeGreaterThan(0);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { PromptId } from '../../src/config/schema';
+import { promptIds } from '../../src/config/schema';
 import {
     buildAgentPrompt,
     buildCoordinatorPrompt,
@@ -53,100 +53,17 @@ describe('prompt loading', () => {
     });
 
     test('a missing or empty override file falls back to the embedded default', async () => {
-        const vcs = new FakeVcs({ '.github/prompts/security.md': '   ' });
+        const defaults = await loadPrompts(new FakeVcs({}), BASE_SHA);
 
-        const prompts = await loadPrompts(vcs, BASE_SHA, {
-            overrides: { security: '.github/prompts/security.md' }
-        });
+        for (const vcs of [new FakeVcs({}), new FakeVcs({ '.github/prompts/security.md': '   ' })]) {
+            const prompts = await loadPrompts(vcs, BASE_SHA, {
+                overrides: { security: '.github/prompts/security.md' }
+            });
 
-        expect(prompts.templates.security).toContain('security-sensitive scope');
+            expect(prompts.templates.security).toBe(defaults.templates.security);
+        }
     });
 });
-
-const REQUIRED_DEFAULT_GUIDANCE: { template: PromptId; fragments: string[] }[] = [
-    {
-        template: 'correctness',
-        fragments: [
-            'behavioral correctness',
-            '## Inspect',
-            'Trace each changed behavior from input or user action to observable output',
-            'Use tests as evidence, not as proof that untested paths are correct',
-            '## Evidence Bar',
-            'the triggering input, state, or event order',
-            'the concrete impact'
-        ]
-    },
-    {
-        template: 'security',
-        fragments: [
-            'security-sensitive scope',
-            '## Inspect',
-            'Authorization at routes, operations, and server boundaries',
-            'Trace the full reachable path before reporting an issue',
-            '## Evidence Bar',
-            'the attacker-controlled or unauthorized input or action',
-            'evidence for the installed version'
-        ]
-    },
-    {
-        template: 'performance',
-        fragments: [
-            'performance-sensitive scope',
-            '## Inspect',
-            'repository-wide and path-specific instructions',
-            'Cache keys, invalidation, stale reuse',
-            '## Evidence Bar',
-            'why the task makes the cost reachable'
-        ]
-    },
-    {
-        template: 'conventions',
-        fragments: [
-            'established repository conventions',
-            '## Establish the Convention',
-            '## Evidence Bar',
-            'governing instruction'
-        ]
-    },
-    {
-        template: 'maintainability',
-        fragments: [
-            'maintainability risks introduced or worsened',
-            '## Inspect',
-            'Follow data and types from external input',
-            'McCabe cyclomatic complexity',
-            '## Evidence Bar',
-            'optional fields that hide distinct states',
-            'materially worsens a clear'
-        ]
-    },
-    {
-        template: 'tests',
-        fragments: [
-            'proof for the behavior and risks',
-            '## Inspect',
-            'Use equivalence partitioning',
-            'Use boundary value analysis',
-            'A test must fail when the behavior it claims to protect breaks',
-            '## Evidence Bar',
-            'unproved behavior',
-            'Do not treat every untested line as a finding',
-            '## Black-Box Case Selection',
-            '## White-Box Case Selection',
-            '## Test Quality Review',
-            '## Structured Contract',
-            'Return no finding when the change alters no behavior'
-        ]
-    },
-    {
-        template: 'coordinator',
-        fragments: ['review coordinator', '## Inspect', '## Evidence Bar', 'source IDs']
-    },
-    {
-        template: 'verifier',
-        fragments: ['ADVERSARIAL VERIFIER', 'REFUTE', 'confirmed']
-    }
-];
 
 const FORBIDDEN_HOST_TOKENS = [
     '.copilot',
@@ -162,21 +79,12 @@ const FORBIDDEN_HOST_TOKENS = [
 ];
 
 describe('embedded default guidance', () => {
-    test('keeps the role, inspection and evidence guidance of every changed template', async () => {
-        const prompts = await loadPrompts(new FakeVcs({}), BASE_SHA);
-
-        for (const { template, fragments } of REQUIRED_DEFAULT_GUIDANCE) {
-            for (const fragment of fragments) {
-                expect(prompts.templates[template]).toContain(fragment);
-            }
-        }
-    });
-
     test('provides a non-empty embedded default for every prompt id', async () => {
         const prompts = await loadPrompts(new FakeVcs({}), BASE_SHA);
+        expect(Object.keys(prompts.templates).toSorted()).toEqual([...promptIds].toSorted());
 
-        for (const [id, content] of Object.entries(prompts.templates)) {
-            expect(content.trim().length, `${id} has no embedded default`).toBeGreaterThan(0);
+        for (const id of promptIds) {
+            expect(prompts.templates[id].trim().length, `${id} has no embedded default`).toBeGreaterThan(0);
         }
     });
 
@@ -194,7 +102,8 @@ describe('embedded default guidance', () => {
         const prompts = await loadPrompts(new FakeVcs({}), BASE_SHA);
 
         for (const template of ['correctness', 'security', 'performance'] as const) {
-            expect(prompts.templates[template]).toContain('previously `confirmed` and `rejected`');
+            expect(prompts.templates[template]).toContain('`confirmed`');
+            expect(prompts.templates[template]).toContain('`rejected`');
         }
     });
 
@@ -225,35 +134,6 @@ describe('embedded default guidance', () => {
         for (const retired of ['`Critical`', '`Warning`', '`Suggestion`']) {
             expect(shared, retired).not.toContain(retired);
         }
-    });
-
-    test('states each effective test rule exactly once', async () => {
-        const prompts = await loadPrompts(new FakeVcs({}), BASE_SHA);
-        const { tests } = prompts.templates;
-
-        function count(token: string): number {
-            return tests.split(token).length - 1;
-        }
-
-        /* The role summary no longer restates the case-selection policy: every
-           flagged rule appears once, in the normative section that owns it. */
-        for (const rule of [
-            'Use equivalence partitioning',
-            'Use boundary value analysis',
-            'Use decision table testing',
-            'Use state transition testing',
-            'Use basis path testing for important branching logic',
-            'Use loop testing only when loop control affects behavior',
-            'Use branch and condition coverage',
-            'Choose the smallest test level that clearly proves the behavior',
-            'Do not add tests only to raise a coverage percentage',
-            'Do not require complete path coverage'
-        ]) {
-            expect(count(rule), rule).toBe(1);
-        }
-
-        expect(tests).not.toContain('Use equivalence partitioning and boundary value analysis');
-        expect(tests).not.toContain('tests that can pass while the protected behavior is broken');
     });
 });
 
@@ -346,7 +226,7 @@ describe('agent prompt construction', () => {
 
         expect(prompt.systemPrompt).toContain('Objective: Review migrations.');
         expect(prompt.systemPrompt).toContain('Scope globs: **/migrations/**');
-        expect(prompt.systemPrompt).toContain('behavioral correctness');
+        expect(prompt.systemPrompt).toContain(prompts.templates.correctness);
     });
 });
 

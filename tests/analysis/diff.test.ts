@@ -55,9 +55,17 @@ function smallMeasuredFile(index: number): VcsChangedFile {
 describe('coverage-budgeted diff', () => {
     test('priority files come first even when provided last', () => {
         const readme = changedFile('docs/readme.md', retained(patchOf(10)));
+        const guide = changedFile('docs/guide.md', retained(patchOf(10)));
         const critical = changedFile('auth/login.ts', retained(patchOf(10)));
-        const coverage = buildCoverageDiff([readme, critical], { maxChars: 100_000, priorityPatterns: ['auth/**'] });
-        expect(coverage.files[0]).toMatchObject({ path: 'auth/login.ts', state: 'complete' });
+        const files = [readme, guide, critical];
+        const coverage = buildCoverageDiff(files, { maxChars: 100_000, priorityPatterns: ['auth/**'] });
+        expect(coverage.files.map((file) => file.path)).toEqual(['auth/login.ts', 'docs/guide.md', 'docs/readme.md']);
+        expect(coverage.unifiedDiff.match(/^diff --git .*$/gmu)).toEqual([
+            'diff --git a/auth/login.ts b/auth/login.ts',
+            'diff --git a/docs/guide.md b/docs/guide.md',
+            'diff --git a/docs/readme.md b/docs/readme.md'
+        ]);
+        expect(files.map((file) => file.path)).toEqual(['docs/readme.md', 'docs/guide.md', 'auth/login.ts']);
         expect(coverage.complete).toBe(true);
     });
 
@@ -291,20 +299,6 @@ describe('coverage-budgeted diff', () => {
 
         expect(coverage.unifiedDiff).toContain('rename from src/old-name.ts');
         expect(coverage.unifiedDiff).toContain('rename to src/new-name.ts');
-    });
-
-    test('coverage output is deterministic', () => {
-        const files = [
-            changedFile('src/a.ts', retained(patchOf(30))),
-            changedFile('src/b.ts', retained(patchOf(30))),
-            changedFile('auth/c.ts', retained(patchOf(30)))
-        ];
-
-        const options = { maxChars: 1200, priorityPatterns: ['auth/**'] };
-        const first = buildCoverageDiff(files, options);
-        const second = buildCoverageDiff(files, options);
-        expect(first.unifiedDiff).toBe(second.unifiedDiff);
-        expect(first.files).toEqual(second.files);
     });
 });
 

@@ -17,9 +17,7 @@ export async function stubCurl(
     const compressedFixture = `${fixture}.gz`;
     await writeFile(compressedFixture, Bun.gzipSync(await readFile(fixture)));
     const assetName = options.assetName ?? 'sakre-linux-x64.gz';
-    /* The delay keeps the reported download phase above zero so the resolver
-       timing assertions are deterministic even on a fast machine. */
-    let anonymous = `sleep 0.05\ncp '${compressedFixture}' "$destination"`;
+    let anonymous = `cp '${compressedFixture}' "$destination"`;
 
     if (options.authenticated === true) {
         anonymous = 'exit 22';
@@ -30,6 +28,9 @@ destination=""
 url=""
 authorized=0
 config_from_stdin=0
+if [ -n "\${RESOLVER_CURL_LOG:-}" ]; then
+    printf '%s\\n' "$@" >> "$RESOLVER_CURL_LOG"
+fi
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --output) destination="$2"; shift 2 ;;
@@ -48,9 +49,6 @@ while [ "$#" -gt 0 ]; do
         *) url="$1"; shift ;;
     esac
 done
-if [ -n "\${RESOLVER_CURL_LOG:-}" ]; then
-    printf '%s\\n' "$*" >> "$RESOLVER_CURL_LOG"
-fi
 if [ "$config_from_stdin" = "1" ]; then
     config=$(cat)
     case "$config" in *'Authorization: Bearer test-token'*) authorized=1 ;; esac

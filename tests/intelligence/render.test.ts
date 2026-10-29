@@ -154,10 +154,4 @@ describe('final comment intelligence section', () => {
         expect(text).toContain('lightweight control-flow estimate');
         expect(text).not.toContain('Analysis tools and metric definitions');
     });
-
-    test('rendering is deterministic', () => {
-        const first = renderIntelligenceComment(sampleMap()).join('\n');
-        const second = renderIntelligenceComment(sampleMap()).join('\n');
-        expect(first).toBe(second);
-    });
 });

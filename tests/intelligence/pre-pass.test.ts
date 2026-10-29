@@ -327,7 +327,6 @@ describe('deterministic pre-pass', () => {
                override removes its metrics and its classification stays
                consistent everywhere. */
             const rules = defaultClassificationRules();
-            const base = await runIntelligencePrePass(realInput(fixture, changedGeneratedFiles()));
 
             const overridden = await runIntelligencePrePass({
                 ...realInput(fixture, changedGeneratedFiles()),
@@ -340,7 +339,7 @@ describe('deterministic pre-pass', () => {
             const overriddenFile = overridden.map.files.find((file) => file.path === 'src/a.ts');
             expect(overriddenFile?.classification).toBe('generated');
             expect(overridden.map.coverage.scc.notCounted).toContain('src/a.ts');
-            expect(overridden.map.repository.head.files).toBe(base.map.repository.head.files - 1);
+            expect(overridden.map.repository.head.files).toBe(measured.map.repository.head.files - 1);
         } finally {
             await rm(fixture.rootDir, { recursive: true, force: true });
         }

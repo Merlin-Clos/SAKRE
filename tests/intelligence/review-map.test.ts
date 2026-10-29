@@ -351,9 +351,18 @@ describe('ReviewMap assembly', () => {
         expect(map.hotspots.largestCodeGrowth[0]?.value).toBeGreaterThan(0);
     });
 
-    test('the functional map is deterministic for identical input', () => {
-        const first = JSON.stringify(buildReviewMap(buildInput()));
-        const second = JSON.stringify(buildReviewMap(buildInput()));
-        expect(first).toBe(second);
+    test('canonicalizes map collections without mutating the input snapshots', () => {
+        const input = buildInput();
+        const original = structuredClone(input);
+        const map = buildReviewMap(input);
+        expect(map.languages.map((language) => language.name)).toEqual(['Markdown', 'TypeScript']);
+        expect(map.files.map((file) => file.path)).toEqual(['bun.lock', 'src/app.ts', 'src/new.ts', 'src/renamed.ts']);
+        expect(map.functions.map((fn) => `${fn.path}:${fn.name}`)).toEqual([
+            'src/app.ts:handler',
+            'src/app.ts:gone',
+            'src/new.ts:fresh',
+            'src/renamed.ts:moved'
+        ]);
+        expect(input).toEqual(original);
     });
 });

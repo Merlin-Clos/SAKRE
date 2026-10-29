@@ -326,11 +326,11 @@
             }
         },
         {
-            "files": ["src/cli/local.ts"],
+            "files": ["src/cli/local.ts", "src/cli/local-review.ts"],
             "rules": {
-                // The local review entrypoint orchestrates parsing, credentials,
-                // GitHub context, runtime creation and output in long multi-step
-                // functions; ternaries select optional context fields.
+                // The CLI boundary and review executor orchestrate failures,
+                // credentials, GitHub context, runtime creation and output in
+                // multi-step functions; ternaries select optional context fields.
                 "eslint/no-ternary": "off",
                 "eslint/max-statements": "off",
                 "eslint/max-lines": "off",

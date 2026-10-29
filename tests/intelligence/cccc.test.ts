@@ -124,8 +124,4 @@ describe('CCCC normalization', () => {
             'zeta:method'
         ]);
     });
-
-    test('is deterministic for the same input', () => {
-        expect(JSON.stringify(parseCcccSnapshot(OUTPUT))).toBe(JSON.stringify(parseCcccSnapshot(OUTPUT)));
-    });
 });

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, setDefaultTimeout, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { recordModelInvocations } from '../../src/ai/provenance';
 import { AiError, type AiStructuredCall } from '../../src/ai/runtime';
 import { materializeEnginePlugin } from '../../src/engine/plugin-source';
 import { createEmbeddedEngineRuntime, type EmbeddedEngineRuntime } from '../../src/engine/runtime';
@@ -90,10 +91,12 @@ async function expectAiError(promise: Promise<unknown>): Promise<AiError> {
 describe('embedded engine runtime', () => {
     test('returns the structured output submitted through the embedded tool', async () => {
         const harness = await startHarness([{ type: 'tool', name: 'submit_findings', input: FINDINGS }]);
+        const log = recordModelInvocations(harness.runtime);
 
-        const result = await harness.runtime.runStructured(agentCall());
+        const result = await log.runtime.runStructured(agentCall());
 
         expect(result.structured).toEqual(FINDINGS);
+        expect(log.modelsUsed()).toEqual([{ agentId: 'correctness', model: MODEL }]);
         const requests = toolRequests(harness.provider);
         expect(requests).toHaveLength(2);
         expect(requests[0]?.tools).toContain('submit_findings');
@@ -173,10 +176,13 @@ describe('embedded engine runtime', () => {
             }
         ]);
 
-        const error = await expectAiError(harness.runtime.runStructured(agentCall()));
+        const log = recordModelInvocations(harness.runtime);
+
+        const error = await expectAiError(log.runtime.runStructured(agentCall()));
 
         expect(error.kind).toBe('provider-auth');
         expect(error.message).toBe('invalid x-api-key');
+        expect(log.modelsUsed()).toEqual([{ agentId: 'correctness', model: MODEL }]);
     });
 
     test('cancels an in-flight turn and stops retrying', async () => {

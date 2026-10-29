@@ -1,9 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { setTimeout as delay } from 'node:timers/promises';
 import { planCoverageDiff } from '../../src/analysis/diff';
 import { renderCoverageDiff } from '../../src/analysis/render';
 import { escalationPriorityPatterns } from '../../src/analysis/risk-rules';
@@ -24,7 +23,14 @@ let baseSha = '';
 
 let headSha = '';
 
-beforeEach(async () => {
+const FAKE_REFS: LocalGitRefs = {
+    baseRef: 'main',
+    headRef: 'HEAD',
+    baseSha: 'b'.repeat(40),
+    headSha: 'f'.repeat(40)
+};
+
+async function createDefaultRepository(): Promise<void> {
     root = await mkdtemp(path.join(tmpdir(), 'sakre-local-vcs-'));
     run('git', ['init', '-q', '-b', 'main'], root);
     await writeFile(path.join(root, 'keep.txt'), 'a\nb\nc\n');
@@ -47,14 +53,18 @@ beforeEach(async () => {
     run('git', ['add', '-A'], root);
     run('git', ['-c', 'user.name=Head', '-c', 'user.email=head@example.com', 'commit', '-qm', 'head commit'], root);
     headSha = run('git', ['rev-parse', 'HEAD'], root);
-});
+}
 
 afterEach(async () => {
-    await rm(root, { recursive: true, force: true });
+    if (root !== '') {
+        await rm(root, { recursive: true, force: true });
+        root = '';
+    }
 });
 
 describe('local Git ref resolution', () => {
     test('detects the default base branch and computes the merge base', async () => {
+        await createDefaultRepository();
         const refs = await resolveLocalRefs({ repositoryDir: root });
         expect(refs.baseRef).toBe('main');
         expect(refs.headRef).toBe('HEAD');
@@ -63,6 +73,7 @@ describe('local Git ref resolution', () => {
     });
 
     test('uses the fork point when the base branch advances after the fork', async () => {
+        await createDefaultRepository();
         run('git', ['checkout', '-q', 'main'], root);
         await writeFile(path.join(root, 'main-only.txt'), 'main\n');
         run('git', ['add', '.'], root);
@@ -82,6 +93,7 @@ describe('local Git ref resolution', () => {
     });
 
     test('prefers origin/HEAD when the remote head ref exists', async () => {
+        await createDefaultRepository();
         run('git', ['update-ref', 'refs/remotes/origin/main', baseSha], root);
         run('git', ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'], root);
 
@@ -225,6 +237,7 @@ describe('local Git VCS adapter', () => {
     });
 
     test('reports a moved head as a new SHA for stale detection', async () => {
+        await createDefaultRepository();
         const refs: LocalGitRefs = await resolveLocalRefs({ repositoryDir: root, baseRef: baseSha, headRef: 'HEAD' });
         const vcs = new LocalGitVcs({ repositoryDir: root, refs, git: createGitRunner(root) });
         expect(await vcs.getCurrentHeadSha(0)).toBe(headSha);
@@ -239,8 +252,8 @@ describe('local Git VCS adapter', () => {
         const host = createFakeGitHost(fileCount);
 
         const vcs = new LocalGitVcs({
-            repositoryDir: root,
-            refs: { baseRef: 'main', headRef: 'HEAD', baseSha, headSha },
+            repositoryDir: 'unused-repository',
+            refs: FAKE_REFS,
             git: host.git
         });
 
@@ -256,8 +269,8 @@ describe('local Git VCS adapter', () => {
         const host = createFakeGitHost(fileCount);
 
         const vcs = new LocalGitVcs({
-            repositoryDir: root,
-            refs: { baseRef: 'main', headRef: 'HEAD', baseSha, headSha },
+            repositoryDir: 'unused-repository',
+            refs: FAKE_REFS,
             git: host.git
         });
 
@@ -279,8 +292,8 @@ describe('local Git VCS adapter', () => {
         const host = createFakeGitHost(fileCount, { patchBytes });
 
         const vcs = new LocalGitVcs({
-            repositoryDir: root,
-            refs: { baseRef: 'main', headRef: 'HEAD', baseSha, headSha },
+            repositoryDir: 'unused-repository',
+            refs: FAKE_REFS,
             git: host.git
         });
 
@@ -334,8 +347,8 @@ describe('local Git VCS adapter', () => {
         const host = createFakeGitHost(1, { chunkSize: 1 });
 
         const vcs = new LocalGitVcs({
-            repositoryDir: root,
-            refs: { baseRef: 'main', headRef: 'HEAD', baseSha, headSha },
+            repositoryDir: 'unused-repository',
+            refs: FAKE_REFS,
             git: host.git
         });
 
@@ -353,8 +366,8 @@ describe('local Git VCS adapter', () => {
         const host = createFakeGitHost(3);
 
         const vcs = new LocalGitVcs({
-            repositoryDir: root,
-            refs: { baseRef: 'main', headRef: 'HEAD', baseSha, headSha },
+            repositoryDir: 'unused-repository',
+            refs: FAKE_REFS,
             git: host.git
         });
 
@@ -382,8 +395,8 @@ describe('local Git VCS adapter', () => {
         const host = createFakeGitHost(3);
 
         const vcs = new LocalGitVcs({
-            repositoryDir: root,
-            refs: { baseRef: 'main', headRef: 'HEAD', baseSha, headSha },
+            repositoryDir: 'unused-repository',
+            refs: FAKE_REFS,
             git: host.git
         });
 
@@ -407,6 +420,7 @@ describe('local Git VCS adapter', () => {
     });
 
     test('renders a complete diff over a real repository range', async () => {
+        await createDefaultRepository();
         const refs = await resolveLocalRefs({ repositoryDir: root, baseRef: 'main', headRef: 'HEAD' });
         const vcs = new LocalGitVcs({ repositoryDir: root, refs, git: createGitRunner(root) });
         const snapshot = await vcs.getPullRequestSnapshot(0);
@@ -426,6 +440,7 @@ describe('local Git VCS adapter', () => {
 });
 
 async function createVcs(context?: LocalGitContext): Promise<LocalGitVcs> {
+    await createDefaultRepository();
     const refs: LocalGitRefs = await resolveLocalRefs({ repositoryDir: root, baseRef: 'main', headRef: 'HEAD' });
 
     return new LocalGitVcs({ repositoryDir: root, refs, context, git: createGitRunner(root) });
@@ -524,7 +539,7 @@ function createFakeGitHost(
     const git: GitRunner = {
         run: async (arguments_, _signal, runOptions): Promise<GitCommandResult> => {
             if (arguments_[0] === 'rev-parse') {
-                return { exitCode: 0, stdout: `${headSha}\n`, stderr: '' };
+                return { exitCode: 0, stdout: `${FAKE_REFS.headSha}\n`, stderr: '' };
             }
 
             if (arguments_[0] === 'log') {
@@ -555,7 +570,7 @@ function createFakeGitHost(
             state.maxActive = Math.max(state.maxActive, state.active);
             const readPath = arguments_.at(-1) ?? '';
             state.reads.push(readPath);
-            await delay(2);
+            await Promise.resolve();
             state.active -= 1;
             const section = fakeSection(readPath, patchBytes);
 

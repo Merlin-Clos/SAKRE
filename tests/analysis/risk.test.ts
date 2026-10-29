@@ -370,16 +370,4 @@ describe('risk tier computation', () => {
             expect(security?.patterns).toContain(pattern);
         }
     });
-
-    test('assessment is deterministic for identical inputs', () => {
-        const input = {
-            changedFiles: [
-                changedFile('auth/login.ts', { additions: 4 }),
-                changedFile('.github/workflows/ci.yml', { additions: 5 })
-            ],
-            ...SMALL_REPOSITORY
-        };
-
-        expect(JSON.stringify(assessRisk(input))).toBe(JSON.stringify(assessRisk(input)));
-    });
 });

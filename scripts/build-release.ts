@@ -58,6 +58,7 @@ async function compileArtifact(input: CompileInput): Promise<void> {
     const result = await Bun.build({
         entrypoints: ['src/action/entry.ts'],
         plugins: [persistentPtyStub()],
+        splitting: true,
         compile: {
             target: bunCompileTarget(input.target),
             outfile: input.outfile,

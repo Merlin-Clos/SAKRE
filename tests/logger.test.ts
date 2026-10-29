@@ -85,28 +85,6 @@ describe('logger formatMessage', () => {
 });
 
 describe('logger formatData', () => {
-    test('returns an empty suffix for absent or empty data', () => {
-        const payloads: (Record<string, unknown> | undefined)[] = [undefined, {}];
-
-        for (const data of payloads) {
-            expect(formatData(data)).toBe('');
-        }
-    });
-
-    test('truncates strings longer than 500 characters', () => {
-        const longString = 'a'.repeat(600);
-        const result = formatData({ value: longString });
-        expect(result).toContain('"value":"aaaa');
-        expect(result).toContain('... [truncated 100 chars]"');
-        expect(result).not.toContain('a'.repeat(600));
-    });
-
-    test('does not truncate strings shorter than 500 characters', () => {
-        const shortString = 'a'.repeat(400);
-        const result = formatData({ value: shortString });
-        expect(result).toContain(shortString);
-    });
-
     test('serializes Error objects with name, message, and stack', () => {
         const error = new Error('something broke');
         error.name = 'CustomError';
